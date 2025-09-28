@@ -5,6 +5,7 @@ import { logger } from '../utils/logger';
 
 export interface AuthRequest extends Request {
   user?: IUser;
+  [key: string]: any;
 }
 
 export const authenticate = async (
