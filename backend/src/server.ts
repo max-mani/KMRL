@@ -22,7 +22,7 @@ import { mobileAlertsRoutes } from './routes/mobileAlerts';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 10000;
 
 // Security middleware
 app.use(helmet());
@@ -106,7 +106,7 @@ const connectDB = async () => {
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
     });
   } catch (error) {
