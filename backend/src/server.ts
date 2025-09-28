@@ -58,6 +58,11 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Health check endpoint for Render
+app.get('/healthz', (req, res) => {
+  res.status(200).json({ status: 'OK' });
+});
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
@@ -84,7 +89,11 @@ app.use(errorHandler);
 // Database connection
 const connectDB = async () => {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb+srv://manikandan:Mani19200503@cluster0.cuh1ybv.mongodb.net/kmrl-fleet';
+    const mongoURI = process.env.MONGODB_URI;
+    if (!mongoURI) {
+      logger.error('MONGODB_URI environment variable is required');
+      process.exit(1);
+    }
     await mongoose.connect(mongoURI);
     logger.info('MongoDB Atlas connected successfully');
   } catch (error) {
