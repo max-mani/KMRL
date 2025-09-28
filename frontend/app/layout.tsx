@@ -2,7 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
-import { Analytics } from "@vercel/analytics/next"
+// import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { NavBar } from "@/components/nav-bar"
 import { Footer } from "@/components/footer"
@@ -34,7 +34,7 @@ export default function RootLayout({
             <Footer />
           </Suspense>
         </div>
-        <Analytics />
+        {/* <Analytics /> */}
       </body>
     </html>
   )
