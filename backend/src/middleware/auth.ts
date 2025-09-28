@@ -3,6 +3,15 @@ import jwt from 'jsonwebtoken';
 import { User, IUser } from '../models/User';
 import { logger } from '../utils/logger';
 
+// Extend Express Request interface globally
+declare global {
+  namespace Express {
+    interface Request {
+      user?: IUser;
+    }
+  }
+}
+
 export interface AuthRequest extends Request {
   user?: IUser;
 }
