@@ -197,7 +197,7 @@ export default function HistoryPage() {
       {/* Comparison Overview */}
       {comparisonData && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card>
+          <Card className="border-l-4 border-blue-500 bg-blue-50/40 dark:bg-blue-950/20">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Average Score</CardTitle>
               <Target className="h-4 w-4 text-muted-foreground" />
@@ -218,7 +218,7 @@ export default function HistoryPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-green-500 bg-green-50/40 dark:bg-green-950/20">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Punctuality</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
@@ -239,7 +239,7 @@ export default function HistoryPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-amber-500 bg-amber-50/40 dark:bg-amber-950/20">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Energy Efficiency</CardTitle>
               <Zap className="h-4 w-4 text-muted-foreground" />
@@ -260,7 +260,7 @@ export default function HistoryPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-purple-500 bg-purple-50/40 dark:bg-purple-950/20">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Shunting Cost</CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
@@ -413,16 +413,16 @@ export default function HistoryPage() {
               <CardDescription>7-day performance metrics comparison</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
+                <ResponsiveContainer width="100%" height={400}>
                 <LineChart data={historicalData.performanceTrends}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
                   <Tooltip />
-                  <Line type="monotone" dataKey="punctuality" stroke="#10b981" strokeWidth={2} name="Punctuality" />
-                  <Line type="monotone" dataKey="energyEfficiency" stroke="#f59e0b" strokeWidth={2} name="Energy Efficiency" />
-                  <Line type="monotone" dataKey="mileageBalance" stroke="#3b82f6" strokeWidth={2} name="Mileage Balance" />
-                  <Line type="monotone" dataKey="brandingCompliance" stroke="#8b5cf6" strokeWidth={2} name="Branding Compliance" />
+                  <Line type="monotone" dataKey="punctuality" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} name="Punctuality" />
+                  <Line type="monotone" dataKey="energyEfficiency" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} name="Energy Efficiency" />
+                  <Line type="monotone" dataKey="mileageBalance" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} name="Mileage Balance" />
+                  <Line type="monotone" dataKey="brandingCompliance" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} name="Branding Compliance" />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>

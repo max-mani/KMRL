@@ -131,5 +131,40 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Subtle diagonal gradient background for visual depth */
+    background-image: radial-gradient(1200px 600px at 10% -10%, color-mix(in oklch, var(--kmrl-teal) 10%, white) 0%, transparent 60%),
+      radial-gradient(1200px 600px at 110% 10%, color-mix(in oklch, var(--kmrl-accent) 12%, white) 0%, transparent 60%);
   }
+}
+
+/* Top accent bar under the header */
+.accent-bar {
+  height: 3px;
+  background: linear-gradient(90deg, var(--kmrl-teal), var(--kmrl-accent));
+}
+
+/* Card visual polish */
+.card {
+  transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+}
+.card:hover {
+  box-shadow: 0 10px 24px -12px color-mix(in oklch, var(--kmrl-teal) 30%, black);
+  border-color: color-mix(in oklch, var(--kmrl-teal) 40%, var(--border));
+}
+
+/* Tabs active styles */
+.tabs-trigger[data-state="active"] {
+  border-bottom: 2px solid var(--kmrl-teal);
+  color: var(--kmrl-teal);
+}
+
+/* Recharts theming */
+.recharts-default-tooltip {
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+}
+.recharts-legend-item-text {
+  fill: var(--foreground) !important;
 }

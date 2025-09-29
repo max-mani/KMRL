@@ -225,6 +225,60 @@ export default function UploadPage() {
     )
   }, [rows, headers])
 
+  function getResultColorClasses(result: any) {
+    try {
+      const factors: Record<string, { score: number; status: string }> = result.factors || {}
+      const statuses = Object.values(factors).map((f) => (f?.status || 'ok') as string)
+      const hasBad = statuses.includes('bad')
+      const hasOk = statuses.includes('ok')
+      const hasGood = statuses.includes('good')
+      const hasGreat = statuses.includes('great')
+
+      // Priority: bad > ok > good > great
+      if (hasBad) {
+        return { bg: 'bg-red-50', border: 'border-red-200', score: 'text-red-600' }
+      }
+      if (hasOk) {
+        return { bg: 'bg-yellow-50', border: 'border-yellow-200', score: 'text-yellow-600' }
+      }
+      if (hasGood) {
+        return { bg: 'bg-blue-50', border: 'border-blue-200', score: 'text-blue-600' }
+      }
+      if (hasGreat) {
+        return { bg: 'bg-green-50', border: 'border-green-200', score: 'text-green-600' }
+      }
+    } catch {}
+    // Fallback based on score
+    const s = Number(result.score) || 0
+    if (s >= 80) return { bg: 'bg-green-50', border: 'border-green-200', score: 'text-green-600' }
+    if (s >= 60) return { bg: 'bg-yellow-50', border: 'border-yellow-200', score: 'text-yellow-600' }
+    return { bg: 'bg-red-50', border: 'border-red-200', score: 'text-red-600' }
+  }
+
+  const factorLabelMap: Record<string, string> = {
+    fitness: 'Fitness',
+    jobCard: 'Job Card',
+    branding: 'Branding',
+    mileage: 'Mileage',
+    cleaning: 'Cleaning',
+    geometry: 'Geometry'
+  }
+
+  function getStatusChipClasses(status: string) {
+    switch ((status || '').toLowerCase()) {
+      case 'great':
+        return 'bg-green-100 text-green-800 border border-green-200'
+      case 'good':
+        return 'bg-blue-100 text-blue-800 border border-blue-200'
+      case 'ok':
+        return 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+      case 'bad':
+        return 'bg-red-100 text-red-800 border border-red-200'
+      default:
+        return 'bg-muted text-foreground border'
+    }
+  }
+
   return (
     <Protected>
       <section className="container mx-auto px-4 py-8 space-y-6">
@@ -369,8 +423,10 @@ export default function UploadPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {optimizationResults.map((result, index) => (
-                        <div key={result.trainId} className="p-4 border rounded-lg">
+                      {optimizationResults.map((result, index) => {
+                        const color = getResultColorClasses(result)
+                        return (
+                        <div key={result.trainId} className={`p-4 border rounded-lg ${color.bg} ${color.border}`}>
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-3">
                               <Badge variant="outline">#{index + 1}</Badge>
@@ -395,14 +451,33 @@ export default function UploadPage() {
                                     </Badge>
                                   )}
                                 </div>
-                                <p className="text-sm text-muted-foreground mt-1">{result.reason}</p>
+                                {/* Colorized factor chips */}
+                                {result.factors && (
+                                  <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {Object.entries(result.factors as Record<string, { score: number; status: string }>).
+                                      map(([k, v]) => (
+                                        <span key={k} className={`px-2 py-0.5 rounded-full text-[10px] ${getStatusChipClasses(v.status)}`}>
+                                          {factorLabelMap[k] || k}: {Math.round(Number(v.score) || 0)}%
+                                        </span>
+                                      ))}
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="text-2xl font-bold" style={{ color: "var(--kmrl-teal)" }}>
+                              <p className={`text-2xl font-bold ${color.score}`}>
                                 {result.score}
                               </p>
-                              <Progress value={result.score} className="w-20 h-2" />
+                              <Progress 
+                                value={result.score} 
+                                className="w-28 h-2"
+                                indicatorClassName={
+                                  color.score.includes('green') ? 'bg-green-500' :
+                                  color.score.includes('blue') ? 'bg-blue-500' :
+                                  color.score.includes('yellow') ? 'bg-yellow-500' : 'bg-red-500'
+                                }
+                                trackClassName="bg-muted"
+                              />
                             </div>
                           </div>
                           
@@ -421,7 +496,7 @@ export default function UploadPage() {
                             ))}
                           </div>
                         </div>
-                      ))}
+                      )})}
                     </div>
                   </CardContent>
                 </Card>

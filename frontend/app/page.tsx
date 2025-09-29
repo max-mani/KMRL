@@ -46,7 +46,7 @@ export default function HomePage() {
           <ul className="grid w-full max-w-4xl grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             {[
               { title: "Fleet Status", desc: "Running, Standby, Maintenance", color: "var(--kmrl-teal)" },
-              { title: "Digital Twin", desc: "What-if scenarios & schedule", color: "var(--kmrl-accent)" },
+              { title: "What-If", desc: "Scenario analysis & schedule", color: "var(--kmrl-accent)" },
               { title: "Upload Data", desc: "CSV / Excel / GSheet preview", color: "var(--kmrl-success)" },
             ].map((f) => (
               <li key={f.title} className="rounded-lg border bg-card p-4 text-left">

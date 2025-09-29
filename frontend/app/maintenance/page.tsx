@@ -152,8 +152,9 @@ export default function MaintenancePage() {
   const statusDistribution = useMemo(() => {
     const allItems = [...maintenanceData.routine, ...maintenanceData.inspection, ...maintenanceData.repair]
     const statuses = ['scheduled', 'in-progress', 'completed', 'overdue']
+    const toTitleCase = (s: string) => s.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     return statuses.map(status => ({
-      name: status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' '),
+      name: toTitleCase(status),
       value: allItems.filter(item => item.status === status).length
     }))
   }, [maintenanceData])

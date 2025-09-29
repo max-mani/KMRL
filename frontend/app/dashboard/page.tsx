@@ -97,6 +97,17 @@ export default function DashboardPage() {
       if (raw) setResults(JSON.parse(raw))
     } catch {}
   }, [])
+  const getScoreTextClass = (value: number) => {
+    if (value >= 80) return 'text-green-600'
+    if (value >= 60) return 'text-yellow-600'
+    return 'text-red-600'
+  }
+
+  const getBarClass = (value: number) => {
+    if (value >= 80) return 'bg-green-500'
+    if (value >= 60) return 'bg-yellow-500'
+    return 'bg-red-500'
+  }
 
   const handleRefresh = () => {
     setIsLoading(true)
@@ -244,8 +255,13 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-bold" style={{ color: "var(--kmrl-teal)" }}>{train.score}</p>
-                      <Progress value={train.score} className="w-20 h-2" />
+                      <p className={`text-2xl font-bold ${getScoreTextClass(train.score)}`}>{train.score}</p>
+                      <Progress 
+                        value={train.score} 
+                        className="w-24 h-2" 
+                        indicatorClassName={getBarClass(train.score)}
+                        trackClassName="bg-muted" 
+                      />
                     </div>
                   </div>
                 ))}

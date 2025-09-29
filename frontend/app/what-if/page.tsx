@@ -279,9 +279,9 @@ export default function WhatIfPage() {
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-semibold text-sm">{train.name}</span>
-                      <Badge variant={
-                        train.status === "running" ? "default" :
-                        train.status === "standby" ? "secondary" : "destructive"
+                      <Badge className={
+                        train.score >= 80 ? 'bg-green-100 text-green-800' :
+                        train.score >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
                       }>
                         {train.status}
                       </Badge>
@@ -289,7 +289,12 @@ export default function WhatIfPage() {
                     <div className="text-xs text-muted-foreground">
                       Score: {train.score}/100
                     </div>
-                    <Progress value={train.score} className="mt-2 h-2" />
+                    <Progress 
+                      value={train.score} 
+                      className="mt-2 h-2"
+                      indicatorClassName={train.score >= 80 ? 'bg-green-500' : train.score >= 60 ? 'bg-yellow-500' : 'bg-red-500'}
+                      trackClassName="bg-muted"
+                    />
                   </div>
                 ))}
               </div>
