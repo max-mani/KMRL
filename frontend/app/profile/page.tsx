@@ -4,15 +4,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
 
+interface User {
+  email: string
+  firstName: string
+  lastName: string
+}
+
 export default function ProfilePage() {
-  const [email, setEmail] = useState<string>("")
+  const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
     const u = localStorage.getItem("kmrl-user")
-    if (u) setEmail(JSON.parse(u).email)
+    if (u) setUser(JSON.parse(u))
   }, [])
 
-  if (!email) {
+  if (!user) {
     return (
       <section className="container mx-auto px-4 py-12">
         <Card>
@@ -38,7 +44,13 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-2">
           <p>
-            <span className="text-muted-foreground">Email:</span> {email}
+            <span className="text-muted-foreground">First Name:</span> {user.firstName}
+          </p>
+          <p>
+            <span className="text-muted-foreground">Last Name:</span> {user.lastName}
+          </p>
+          <p>
+            <span className="text-muted-foreground">Email:</span> {user.email}
           </p>
           <a href="/logout">
             <Button variant="destructive">Logout</Button>

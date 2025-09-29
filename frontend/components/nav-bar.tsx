@@ -1,9 +1,14 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "./theme-toggle"
+import { useEffect, useState } from "react"
+
+interface User {
+  firstName: string
+}
 
 const links = [
   { href: "/dashboard", label: "Fleet Status" },
@@ -13,11 +18,26 @@ const links = [
   { href: "/history", label: "Historical Data" },
   { href: "/digital-twin", label: "What-If Digital Twin" },
   { href: "/upload", label: "Upload Data" },
-  { href: "/profile", label: "Profile" },
 ]
 
 export function NavBar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [user, setUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("kmrl-user")
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
+    }
+  }, [pathname]) // Rerun on route change
+
+  const handleLogout = () => {
+    localStorage.removeItem("kmrl-user")
+    localStorage.removeItem("kmrl-token")
+    setUser(null)
+    router.push("/login")
+  }
 
   return (
     <header className="border-b bg-card">
@@ -48,16 +68,31 @@ export function NavBar() {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Link href="/login">
-            <Button variant="outline" size="sm">
-              Login
-            </Button>
-          </Link>
-          <Link href="/signup">
-            <Button size="sm" className="bg-[var(--kmrl-teal)] text-white hover:opacity-90">
-              Sign up
-            </Button>
-          </Link>
+          {user ? (
+            <>
+              <Link href="/profile">
+                <Button variant="ghost" size="sm">
+                  {user.firstName}
+                </Button>
+              </Link>
+              <Button onClick={handleLogout} variant="outline" size="sm">
+                Logout
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link href="/login">
+                <Button variant="outline" size="sm">
+                  Login
+                </Button>
+              </Link>
+              <Link href="/signup">
+                <Button size="sm" className="bg-[var(--kmrl-teal)] text-white hover:opacity-90">
+                  Sign up
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
