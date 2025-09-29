@@ -537,9 +537,9 @@ export default function DigitalTwinPage() {
                 />
                 
                 {/* Legend */}
-                <div className="absolute top-4 right-4 bg-white p-3 rounded-lg shadow-md">
-                  <h4 className="font-semibold mb-2">Legend</h4>
-                  <div className="space-y-1 text-sm">
+                <div className="absolute top-4 right-4 bg-white dark:bg-slate-900 p-3 rounded-lg shadow-md">
+                  <h4 className="font-semibold mb-2 text-slate-900 dark:text-slate-50">Legend</h4>
+                  <div className="space-y-1 text-sm text-slate-500 dark:text-slate-400">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 bg-green-500 rounded"></div>
                       <span>High Score (80+)</span>
