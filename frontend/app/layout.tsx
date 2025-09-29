@@ -7,6 +7,7 @@ import "./globals.css"
 import { NavBar } from "@/components/nav-bar"
 import { Footer } from "@/components/footer"
 import { Suspense } from "react"
+import { FloatingChatbot } from "@/components/chatbot"
 
 export const metadata: Metadata = {
   title: "KMRL Fleet Optimization",
@@ -34,6 +35,7 @@ export default function RootLayout({
             <Footer />
           </Suspense>
         </div>
+        <FloatingChatbot />
         {/* <Analytics /> */}
       </body>
     </html>

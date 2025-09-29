@@ -17,6 +17,7 @@ import { digitalTwinRoutes } from './routes/digitalTwin';
 import { fleetRoutes } from './routes/fleet';
 import { learningRoutes } from './routes/learning';
 import { mobileAlertsRoutes } from './routes/mobileAlerts';
+import { chatRoutes } from './routes/chat';
 
 // Load environment variables
 dotenv.config({ path: './.env' });
@@ -26,6 +27,7 @@ console.log('Environment variables loaded:');
 console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('PORT:', process.env.PORT);
+console.log('GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? 'Set' : 'Not set');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -103,6 +105,7 @@ app.use('/api/digital-twin', digitalTwinRoutes);
 app.use('/api/fleet', fleetRoutes);
 app.use('/api/learning', learningRoutes);
 app.use('/api/mobile-alerts', mobileAlertsRoutes);
+app.use('/api/chat', chatRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

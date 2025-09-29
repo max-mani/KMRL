@@ -16,7 +16,7 @@ const links = [
   { href: "/performance", label: "System Performance" },
   { href: "/insights", label: "Critical Insights" },
   { href: "/history", label: "Historical Data" },
-  { href: "/digital-twin", label: "What-If Digital Twin" },
+  { href: "/digital-twin", label: "What-If" },
   { href: "/upload", label: "Upload Data" },
 ]
 
