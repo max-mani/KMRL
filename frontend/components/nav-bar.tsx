@@ -48,7 +48,7 @@ export function NavBar() {
             alt="Kochi Metro Rail Limited Logo"
             className="h-8 w-auto"
           />
-          <span className="font-semibold">KMRL</span>
+          <span className="font-semibold text-lg">KMRL</span>
         </Link>
 
         <nav className="hidden lg:flex items-center gap-1">
@@ -58,7 +58,7 @@ export function NavBar() {
               <Link
                 key={l.href}
                 href={l.href}
-                className={`px-2 py-1 rounded-md text-xs ${active ? "bg-muted" : "hover:bg-muted"}`}
+                className={`px-2 py-1 rounded-md text-sm ${active ? "bg-muted" : "hover:bg-muted"}`}
               >
                 {l.label}
               </Link>
