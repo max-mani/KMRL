@@ -137,6 +137,9 @@ UPLOAD_PATH=./uploads
 
 # Logging
 LOG_LEVEL=info
+
+# Gemini (Chat Assistant)
+GEMINI_API_KEY=your_google_gemini_api_key
 ```
 
 ## Data Models
