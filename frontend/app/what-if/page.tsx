@@ -45,14 +45,22 @@ function Protected({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-// Mock train data
-const mockTrains = [
-  { id: "T001", name: "Train 001", status: "running", score: 85, factors: { fitness: "great", jobCard: "good", branding: "ok", mileage: "great", cleaning: "good", geometry: "ok" } },
-  { id: "T002", name: "Train 002", status: "standby", score: 72, factors: { fitness: "good", jobCard: "ok", branding: "bad", mileage: "good", cleaning: "ok", geometry: "good" } },
-  { id: "T003", name: "Train 003", status: "maintenance", score: 45, factors: { fitness: "bad", jobCard: "bad", branding: "ok", mileage: "ok", cleaning: "bad", geometry: "ok" } },
-  { id: "T004", name: "Train 004", status: "running", score: 92, factors: { fitness: "great", jobCard: "great", branding: "great", mileage: "great", cleaning: "great", geometry: "great" } },
-  { id: "T005", name: "Train 005", status: "standby", score: 68, factors: { fitness: "ok", jobCard: "good", branding: "good", mileage: "ok", cleaning: "ok", geometry: "good" } },
-]
+// Trains will be loaded from uploaded results
+const loadTrainsFromResults = () => {
+  try {
+    const raw = localStorage.getItem('kmrl-optimization-results')
+    const results: any[] = raw ? JSON.parse(raw) : []
+    return results.map((r, i) => ({
+      id: r.trainId || `T${String(i + 1).padStart(3, '0')}`,
+      name: r.trainId || `Train ${String(i + 1).padStart(3, '0')}`,
+      status: (r.inductionStatus || 'standby').toLowerCase(),
+      score: Number(r.score) || 0,
+      factors: r.factors || { fitness: 'ok', jobCard: 'ok', branding: 'ok', mileage: 'ok', cleaning: 'ok', geometry: 'ok' }
+    }))
+  } catch {
+    return [] as any[]
+  }
+}
 
 const factorColors = {
   great: "bg-green-500",
@@ -71,11 +79,22 @@ const factorLabels = {
 }
 
 export default function WhatIfPage() {
-  const [trains, setTrains] = useState(mockTrains)
+  const [hasUser, setHasUser] = useState<boolean>(false)
+  const [hasResults, setHasResults] = useState<boolean>(true)
+  const [trains, setTrains] = useState(loadTrainsFromResults())
   const [selectedTrain, setSelectedTrain] = useState<string>("")
   const [scenario, setScenario] = useState<string>("")
   const [isAnimating, setIsAnimating] = useState(false)
   const [simulationResult, setSimulationResult] = useState<any>(null)
+
+  useEffect(() => {
+    try {
+      const user = localStorage.getItem('kmrl-user')
+      setHasUser(!!user)
+      const results = localStorage.getItem('kmrl-optimization-results')
+      setHasResults(!!results)
+    } catch {}
+  }, [])
 
   const handleScenarioChange = (trainId: string, newStatus: string) => {
     setTrains(prev => prev.map(train => 
@@ -108,6 +127,32 @@ export default function WhatIfPage() {
     setTrains(mockTrains)
     setSimulationResult(null)
     setIsAnimating(false)
+  }
+
+  if (!hasUser) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="mb-2">You must be logged in to view What-If Analysis.</p>
+            <a href="/login" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Login</a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasResults) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="mb-2">No data found. Please upload data to continue.</p>
+            <a href="/upload" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Upload</a>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

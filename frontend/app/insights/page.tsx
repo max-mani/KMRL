@@ -48,6 +48,8 @@ interface InsightMetrics {
 }
 
 export default function InsightsPage() {
+  const [hasUser, setHasUser] = useState<boolean>(false)
+  const [hasResults, setHasResults] = useState<boolean>(true)
   const [insights, setInsights] = useState<CriticalInsight[]>([])
   const [metrics, setMetrics] = useState<InsightMetrics>({
     totalInsights: 0,
@@ -61,131 +63,45 @@ export default function InsightsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    try {
+      const user = localStorage.getItem('kmrl-user')
+      setHasUser(!!user)
+      const results = localStorage.getItem('kmrl-optimization-results')
+      setHasResults(!!results)
+    } catch {}
+
     const fetchInsights = async () => {
       try {
-        // Mock data - replace with actual API call
-        const mockInsights: CriticalInsight[] = [
-          {
-            id: '1',
-            type: 'critical',
-            category: 'fitness',
-            title: 'Expired Telecom Certificates',
-            description: 'Train KM07 and KM12 have expired telecom fitness certificates. This could lead to service interruptions and safety violations.',
-            impact: 'high',
-            urgency: 'immediate',
-            affectedTrains: ['KM07', 'KM12'],
-            recommendedActions: [
-              'Schedule immediate telecom inspection',
-              'Withdraw affected trains from service',
-              'Coordinate with telecom department for emergency certification'
-            ],
-            estimatedSavings: 15000,
-            timestamp: '2024-01-14T10:30:00Z',
-            resolved: false
-          },
-          {
-            id: '2',
-            type: 'warning',
-            category: 'branding',
-            title: 'Branding SLA at Risk',
-            description: 'Train KM03 is falling behind on branding exposure hours. Current completion rate is 45% with only 3 days remaining to meet SLA.',
-            impact: 'medium',
-            urgency: 'within-24h',
-            affectedTrains: ['KM03'],
-            recommendedActions: [
-              'Prioritize KM03 for service deployment',
-              'Extend operating hours if necessary',
-              'Coordinate with advertiser for deadline extension'
-            ],
-            estimatedSavings: 25000,
-            timestamp: '2024-01-14T09:15:00Z',
-            resolved: false
-          },
-          {
-            id: '3',
-            type: 'recommendation',
-            category: 'energy',
-            title: 'Optimize Shunting Routes',
-            description: 'Analysis shows 23% reduction in energy consumption possible by optimizing train movement patterns between service and standby zones.',
-            impact: 'medium',
-            urgency: 'within-week',
-            affectedTrains: ['KM01', 'KM05', 'KM08', 'KM15'],
-            recommendedActions: [
-              'Implement new shunting algorithm',
-              'Update yard layout for shorter routes',
-              'Train staff on optimized procedures'
-            ],
-            estimatedSavings: 8500,
-            timestamp: '2024-01-14T08:45:00Z',
-            resolved: false
-          },
-          {
-            id: '4',
-            type: 'opportunity',
-            category: 'efficiency',
-            title: 'Predictive Maintenance Window',
-            description: 'IoT sensor data indicates optimal maintenance window for Train KM09. Early intervention could prevent 40% more expensive repairs.',
-            impact: 'medium',
-            urgency: 'within-week',
-            affectedTrains: ['KM09'],
-            recommendedActions: [
-              'Schedule preventive maintenance for KM09',
-              'Update maintenance schedules based on sensor data',
-              'Implement predictive maintenance protocols'
-            ],
-            estimatedSavings: 12000,
-            timestamp: '2024-01-14T07:30:00Z',
-            resolved: false
-          },
-          {
-            id: '5',
-            type: 'critical',
-            category: 'safety',
-            title: 'Critical Brake System Alert',
-            description: 'Train KM11 shows abnormal brake pad wear pattern. Immediate inspection required to prevent safety incidents.',
-            impact: 'high',
-            urgency: 'immediate',
-            affectedTrains: ['KM11'],
-            recommendedActions: [
-              'Immediately withdraw KM11 from service',
-              'Emergency brake system inspection',
-              'Replace brake pads if necessary'
-            ],
-            estimatedSavings: 30000,
-            timestamp: '2024-01-14T06:20:00Z',
-            resolved: false
-          },
-          {
-            id: '6',
-            type: 'recommendation',
-            category: 'efficiency',
-            title: 'Mileage Balancing Opportunity',
-            description: 'Current fleet shows uneven mileage distribution. Rebalancing could extend component life by 15% and reduce maintenance costs.',
-            impact: 'low',
-            urgency: 'within-week',
-            affectedTrains: ['KM02', 'KM04', 'KM06', 'KM10', 'KM13', 'KM14'],
-            recommendedActions: [
-              'Adjust service schedules for better mileage distribution',
-              'Implement automated mileage tracking',
-              'Create mileage balancing policies'
-            ],
-            estimatedSavings: 18000,
-            timestamp: '2024-01-13T16:45:00Z',
-            resolved: false
-          }
-        ]
+        // derive simple insights from uploaded results
+        const raw = localStorage.getItem('kmrl-optimization-results')
+        const results: any[] = raw ? JSON.parse(raw) : []
+        const derived: CriticalInsight[] = results.slice(0, 8).map((r, idx) => ({
+          id: String(idx + 1),
+          type: r.score < 60 ? 'critical' : r.score < 75 ? 'warning' : 'recommendation',
+          category: 'efficiency',
+          title: `${r.trainId || 'Train'} optimization insight`,
+          description: r.reason || 'Generated from optimization results',
+          impact: r.score < 60 ? 'high' : r.score < 75 ? 'medium' : 'low',
+          urgency: r.score < 60 ? 'immediate' : r.score < 75 ? 'within-24h' : 'within-week',
+          affectedTrains: [r.trainId || `T${idx + 1}`],
+          recommendedActions: [
+            r.score < 60 ? 'Schedule maintenance' : 'Deploy to service',
+            'Review factor breakdown'
+          ],
+          estimatedSavings: undefined,
+          timestamp: new Date().toISOString(),
+          resolved: false
+        }))
 
-        setInsights(mockInsights)
-        
-        // Calculate metrics
+        setInsights(derived)
         const newMetrics: InsightMetrics = {
-          totalInsights: mockInsights.length,
-          criticalCount: mockInsights.filter(i => i.type === 'critical').length,
-          warningCount: mockInsights.filter(i => i.type === 'warning').length,
-          recommendationCount: mockInsights.filter(i => i.type === 'recommendation').length,
-          opportunityCount: mockInsights.filter(i => i.type === 'opportunity').length,
-          resolvedCount: mockInsights.filter(i => i.resolved).length,
-          pendingCount: mockInsights.filter(i => !i.resolved).length
+          totalInsights: derived.length,
+          criticalCount: derived.filter(i => i.type === 'critical').length,
+          warningCount: derived.filter(i => i.type === 'warning').length,
+          recommendationCount: derived.filter(i => i.type === 'recommendation').length,
+          opportunityCount: derived.filter(i => i.type === 'opportunity').length,
+          resolvedCount: derived.filter(i => i.resolved).length,
+          pendingCount: derived.filter(i => !i.resolved).length
         }
         setMetrics(newMetrics)
       } catch (error) {
@@ -246,6 +162,32 @@ export default function InsightsPage() {
       case 'efficiency': return <BarChart3 className="h-4 w-4" />
       default: return <Eye className="h-4 w-4" />
     }
+  }
+
+  if (!hasUser) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="mb-2">You must be logged in to view Critical Insights.</p>
+            <a href="/login" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Login</a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasResults) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="mb-2">No data found. Please upload data to continue.</p>
+            <a href="/upload" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Upload</a>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {

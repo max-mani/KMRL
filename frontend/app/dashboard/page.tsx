@@ -59,99 +59,16 @@ function Protected({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-// Enhanced mock data with six-factor analysis
-const fleetData = [
-  { status: "Running", count: 18, color: "#10B981" },
-  { status: "Standby", count: 6, color: "#F59E0B" },
-  { status: "Maintenance", count: 4, color: "#EF4444" },
-]
-
-const kpiData = [
-  { day: "Mon", mileage: 420, energy: 92, punctuality: 98.5, branding: 85 },
-  { day: "Tue", mileage: 480, energy: 88, punctuality: 99.2, branding: 78 },
-  { day: "Wed", mileage: 455, energy: 95, punctuality: 99.8, branding: 92 },
-  { day: "Thu", mileage: 500, energy: 90, punctuality: 98.9, branding: 88 },
-  { day: "Fri", mileage: 530, energy: 87, punctuality: 99.1, branding: 85 },
-]
-
-// Mock train data with six-factor scoring
-const trainData = [
-  { 
-    id: "T001", 
-    name: "Train 001", 
-    status: "running", 
-    score: 85,
-    factors: {
-      fitness: { score: 95, status: "great" },
-      jobCard: { score: 80, status: "good" },
-      branding: { score: 65, status: "ok" },
-      mileage: { score: 90, status: "great" },
-      cleaning: { score: 75, status: "good" },
-      geometry: { score: 70, status: "ok" }
-    },
-    reason: "Excellent fitness certificate and mileage balancing, but branding wrap is overdue"
-  },
-  { 
-    id: "T002", 
-    name: "Train 002", 
-    status: "standby", 
-    score: 72,
-    factors: {
-      fitness: { score: 85, status: "good" },
-      jobCard: { score: 70, status: "ok" },
-      branding: { score: 45, status: "bad" },
-      mileage: { score: 80, status: "good" },
-      cleaning: { score: 65, status: "ok" },
-      geometry: { score: 75, status: "good" }
-    },
-    reason: "Good overall condition but branding wrap is critical and needs immediate attention"
-  },
-  { 
-    id: "T003", 
-    name: "Train 003", 
-    status: "maintenance", 
-    score: 45,
-    factors: {
-      fitness: { score: 30, status: "bad" },
-      jobCard: { score: 40, status: "bad" },
-      branding: { score: 60, status: "ok" },
-      mileage: { score: 50, status: "ok" },
-      cleaning: { score: 35, status: "bad" },
-      geometry: { score: 55, status: "ok" }
-    },
-    reason: "Multiple critical issues: fitness certificate expired, job card overdue, cleaning required"
-  },
-  { 
-    id: "T004", 
-    name: "Train 004", 
-    status: "running", 
-    score: 92,
-    factors: {
-      fitness: { score: 98, status: "great" },
-      jobCard: { score: 95, status: "great" },
-      branding: { score: 90, status: "great" },
-      mileage: { score: 88, status: "good" },
-      cleaning: { score: 95, status: "great" },
-      geometry: { score: 90, status: "great" }
-    },
-    reason: "Excellent condition across all factors - optimal for revenue service"
-  },
-  { 
-    id: "T005", 
-    name: "Train 005", 
-    status: "standby", 
-    score: 68,
-    factors: {
-      fitness: { score: 70, status: "ok" },
-      jobCard: { score: 75, status: "good" },
-      branding: { score: 80, status: "good" },
-      mileage: { score: 60, status: "ok" },
-      cleaning: { score: 65, status: "ok" },
-      geometry: { score: 70, status: "ok" }
-    },
-    reason: "Average condition across all factors - suitable for standby duty"
-  }
-]
+// derive from uploaded optimization results
+type Result = {
+  trainId: string
+  score: number
+  factors?: Record<string, { score: number; status: string }>
+  inductionStatus?: string
+  cleaningSlot?: number
+  stablingBay?: number
+  reason?: string
+}
 
 const factorColors = {
   great: "bg-green-500",
@@ -172,6 +89,14 @@ const factorLabels = {
 export default function DashboardPage() {
   const [selectedTrain, setSelectedTrain] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
+  const [results, setResults] = useState<Result[]>([])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('kmrl-optimization-results')
+      if (raw) setResults(JSON.parse(raw))
+    } catch {}
+  }, [])
 
   const handleRefresh = () => {
     setIsLoading(true)
@@ -203,15 +128,25 @@ export default function DashboardPage() {
         </div>
 
         <div className="space-y-6">
+          {!results.length && (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <AlertTriangle className="h-8 w-8 mx-auto mb-3 text-yellow-600" />
+                <p className="mb-2">No data found. Please upload data to view Fleet Status.</p>
+                <a href="/upload" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Upload</a>
+              </CardContent>
+            </Card>
+          )}
           <div className="space-y-6">
             {/* Fleet Status Overview */}
+            {results.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Card className="border-green-200 bg-green-50">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-green-600">Running</p>
-                      <p className="text-2xl font-bold text-green-700">18</p>
+                      <p className="text-2xl font-bold text-green-700">{results.filter(r => (r.inductionStatus || '').toLowerCase() === 'revenue').length}</p>
                     </div>
                     <Train className="h-8 w-8 text-green-600" />
                   </div>
@@ -222,7 +157,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-yellow-600">Standby</p>
-                      <p className="text-2xl font-bold text-yellow-700">6</p>
+                      <p className="text-2xl font-bold text-yellow-700">{results.filter(r => (r.inductionStatus || '').toLowerCase() === 'standby').length}</p>
                     </div>
                     <Clock className="h-8 w-8 text-yellow-600" />
                   </div>
@@ -233,22 +168,28 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-red-600">Maintenance</p>
-                      <p className="text-2xl font-bold text-red-700">4</p>
+                      <p className="text-2xl font-bold text-red-700">{results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance').length}</p>
                     </div>
                     <AlertTriangle className="h-8 w-8 text-red-600" />
                   </div>
                 </CardContent>
               </Card>
             </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {results.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Fleet Distribution</CardTitle>
                 </CardHeader>
                 <CardContent className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={fleetData}>
+                    <BarChart data={[
+                      { status: 'Running', count: results.filter(r => (r.inductionStatus || '').toLowerCase() === 'revenue').length },
+                      { status: 'Standby', count: results.filter(r => (r.inductionStatus || '').toLowerCase() === 'standby').length },
+                      { status: 'Maintenance', count: results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance').length },
+                    ]}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="status" />
                       <YAxis />
@@ -258,31 +199,36 @@ export default function DashboardPage() {
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
+              )}
 
+              {results.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Train Rankings (0-100 Scale)</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {trainData.slice(0, 5).map((train, index) => (
-                    <div key={train.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  {results
+                    .slice()
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 5)
+                    .map((train, index) => (
+                    <div key={train.trainId} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
                         <Badge variant="outline">#{index + 1}</Badge>
                         <div>
-                          <p className="font-semibold">{train.name}</p>
+                          <p className="font-semibold">{train.trainId}</p>
                           <p className="text-sm text-muted-foreground">{train.reason}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold" style={{ color: "var(--kmrl-teal)" }}>
-                          {train.score}
-                        </p>
+                        <p className="text-2xl font-bold" style={{ color: "var(--kmrl-teal)" }}>{train.score}</p>
                         <Progress value={train.score} className="w-20 h-2" />
                       </div>
                     </div>
                   ))}
                 </CardContent>
               </Card>
+              )}
             </div>
 
             {/* Six-Factor Analysis */}

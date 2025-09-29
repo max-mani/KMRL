@@ -39,6 +39,14 @@ export function NavBar() {
     router.push("/login")
   }
 
+  const protectedRoutes = new Set(["/dashboard", "/maintenance", "/performance", "/insights", "/history", "/digital-twin", "/what-if", "/upload"])
+  const handleNavClick = (e: React.MouseEvent, href: string) => {
+    if (protectedRoutes.has(href) && !user) {
+      e.preventDefault()
+      router.push("/login")
+    }
+  }
+
   return (
     <header className="border-b bg-card">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -58,6 +66,7 @@ export function NavBar() {
               <Link
                 key={l.href}
                 href={l.href}
+                onClick={(e) => handleNavClick(e, l.href)}
                 className={`px-2 py-1 rounded-md text-sm ${active ? "bg-muted" : "hover:bg-muted"}`}
               >
                 {l.label}

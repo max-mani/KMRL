@@ -35,6 +35,8 @@ interface PerformanceMetrics {
 }
 
 export default function PerformancePage() {
+  const [hasUser, setHasUser] = useState<boolean>(false)
+  const [hasResults, setHasResults] = useState<boolean>(true)
   const [performanceData, setPerformanceData] = useState<PerformanceMetrics>({
     kpis: {
       punctuality: 0,
@@ -57,87 +59,41 @@ export default function PerformancePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    try {
+      const user = localStorage.getItem('kmrl-user')
+      setHasUser(!!user)
+      const results = localStorage.getItem('kmrl-optimization-results')
+      setHasResults(!!results)
+    } catch {}
+
     const fetchPerformanceData = async () => {
       try {
-        // Mock data - replace with actual API call
-        const mockData: PerformanceMetrics = {
+        // derive minimal performance from uploaded results
+        const raw = localStorage.getItem('kmrl-optimization-results')
+        const results: any[] = raw ? JSON.parse(raw) : []
+        const scores = results.map(r => Number(r.score) || 0)
+        const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
+        const standby = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'standby').length
+        const service = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'revenue').length
+        const maintenance = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance').length
+        setPerformanceData({
           kpis: {
-            punctuality: 99.2,
-            energyEfficiency: 87.5,
-            mileageBalance: 92.3,
-            brandingCompliance: 95.1,
-            averageScore: 84.7,
-            shuntingCost: 156.8
+            punctuality: 0,
+            energyEfficiency: 0,
+            mileageBalance: 0,
+            brandingCompliance: 0,
+            averageScore: avg,
+            shuntingCost: 0
           },
-          trends: {
-            punctuality: [
-              { date: '2024-01-08', value: 98.9 },
-              { date: '2024-01-09', value: 99.1 },
-              { date: '2024-01-10', value: 99.3 },
-              { date: '2024-01-11', value: 99.0 },
-              { date: '2024-01-12', value: 99.4 },
-              { date: '2024-01-13', value: 99.2 },
-              { date: '2024-01-14', value: 99.2 }
-            ],
-            energyEfficiency: [
-              { date: '2024-01-08', value: 85.2 },
-              { date: '2024-01-09', value: 86.1 },
-              { date: '2024-01-10', value: 87.8 },
-              { date: '2024-01-11', value: 86.9 },
-              { date: '2024-01-12', value: 88.2 },
-              { date: '2024-01-13', value: 87.5 },
-              { date: '2024-01-14', value: 87.5 }
-            ],
-            mileageBalance: [
-              { date: '2024-01-08', value: 89.3 },
-              { date: '2024-01-09', value: 90.1 },
-              { date: '2024-01-10', value: 91.5 },
-              { date: '2024-01-11', value: 92.8 },
-              { date: '2024-01-12', value: 93.1 },
-              { date: '2024-01-13', value: 92.3 },
-              { date: '2024-01-14', value: 92.3 }
-            ],
-            brandingCompliance: [
-              { date: '2024-01-08', value: 93.2 },
-              { date: '2024-01-09', value: 94.1 },
-              { date: '2024-01-10', value: 95.8 },
-              { date: '2024-01-11', value: 94.9 },
-              { date: '2024-01-12', value: 96.2 },
-              { date: '2024-01-13', value: 95.1 },
-              { date: '2024-01-14', value: 95.1 }
-            ]
-          },
+          trends: { punctuality: [], energyEfficiency: [], mileageBalance: [], brandingCompliance: [] },
           fleetDistribution: [
-            { name: 'Service', value: 18, color: '#10b981' },
-            { name: 'Standby', value: 5, color: '#f59e0b' },
-            { name: 'Maintenance', value: 2, color: '#ef4444' }
+            { name: 'Service', value: service, color: '#10b981' },
+            { name: 'Standby', value: standby, color: '#f59e0b' },
+            { name: 'Maintenance', value: maintenance, color: '#ef4444' }
           ],
-          energyConsumption: [
-            { hour: '00:00', consumption: 45 },
-            { hour: '04:00', consumption: 52 },
-            { hour: '08:00', consumption: 78 },
-            { hour: '12:00', consumption: 85 },
-            { hour: '16:00', consumption: 92 },
-            { hour: '20:00', consumption: 68 }
-          ],
-          alerts: [
-            {
-              id: '1',
-              type: 'warning',
-              message: 'Energy efficiency below target threshold',
-              timestamp: '2024-01-14T14:30:00Z',
-              resolved: false
-            },
-            {
-              id: '2',
-              type: 'info',
-              message: 'Mileage balancing optimization completed',
-              timestamp: '2024-01-14T12:15:00Z',
-              resolved: true
-            }
-          ]
-        }
-        setPerformanceData(mockData)
+          energyConsumption: [],
+          alerts: []
+        })
       } catch (error) {
         console.error('Error fetching performance data:', error)
       } finally {
@@ -158,6 +114,32 @@ export default function PerformancePage() {
     if (value >= threshold) return <TrendingUp className="h-4 w-4 text-green-600" />
     if (value >= threshold - 10) return <TrendingUp className="h-4 w-4 text-yellow-600" />
     return <TrendingDown className="h-4 w-4 text-red-600" />
+  }
+
+  if (!hasUser) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="mb-2">You must be logged in to view System Performance.</p>
+            <a href="/login" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Login</a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasResults) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="mb-2">No data found. Please upload data to continue.</p>
+            <a href="/upload" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Upload</a>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {

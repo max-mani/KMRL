@@ -43,6 +43,8 @@ interface MaintenanceAlert {
 }
 
 export default function MaintenancePage() {
+  const [hasUser, setHasUser] = useState<boolean>(false)
+  const [hasResults, setHasResults] = useState<boolean>(true)
   const [maintenanceData, setMaintenanceData] = useState<MaintenanceData>({
     routine: [],
     inspection: [],
@@ -54,34 +56,49 @@ export default function MaintenancePage() {
   const [statusFilter, setStatusFilter] = useState("all")
 
   useEffect(() => {
-    const fetchMaintenanceData = async () => {
-      try {
-        const mockData: MaintenanceData = {
-          routine: [
-            { id: '1', trainId: 'KM01', trainName: 'Train KM01', type: 'routine', status: 'scheduled', priority: 'medium', dueDate: '2024-01-15', estimatedDuration: 120, description: 'Regular cleaning and minor inspection', assignedTo: 'Maintenance Team A', progress: 0 },
-            { id: '2', trainId: 'KM03', trainName: 'Train KM03', type: 'routine', status: 'in-progress', priority: 'low', dueDate: '2024-01-14', estimatedDuration: 90, description: 'Wheel alignment check', assignedTo: 'Maintenance Team B', progress: 65 },
-          ],
-          inspection: [
-            { id: '3', trainId: 'KM07', trainName: 'Train KM07', type: 'inspection', status: 'overdue', priority: 'high', dueDate: '2024-01-12', estimatedDuration: 240, description: 'Annual comprehensive inspection', assignedTo: 'Inspection Team', progress: 0 },
-            { id: '4', trainId: 'KM12', trainName: 'Train KM12', type: 'inspection', status: 'completed', priority: 'medium', dueDate: '2024-01-10', estimatedDuration: 180, description: 'Brake system inspection', assignedTo: 'Inspection Team', progress: 100 },
-          ],
-          repair: [
-            { id: '5', trainId: 'KM15', trainName: 'Train KM15', type: 'repair', status: 'in-progress', priority: 'high', dueDate: '2024-01-13', estimatedDuration: 480, description: 'Door mechanism repair', assignedTo: 'Repair Team A', progress: 40 },
-          ],
-          alerts: [
-            { id: '1', trainId: 'KM07', type: 'critical', message: 'Inspection overdue - immediate attention required', timestamp: '2024-01-14T10:30:00Z', resolved: false },
-            { id: '2', trainId: 'KM15', type: 'warning', message: 'Repair taking longer than estimated', timestamp: '2024-01-14T09:15:00Z', resolved: false },
-          ]
-        }
-        setMaintenanceData(mockData)
-      } catch (error) {
-        console.error('Error fetching maintenance data:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
+    try {
+      const user = localStorage.getItem('kmrl-user')
+      setHasUser(!!user)
+      const results = localStorage.getItem('kmrl-optimization-results')
+      setHasResults(!!results)
+    } catch {}
 
-    fetchMaintenanceData()
+    // Build maintenance view from uploaded results
+    try {
+      const raw = localStorage.getItem('kmrl-optimization-results')
+      const results: any[] = raw ? JSON.parse(raw) : []
+      const maint = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance')
+      const mapped: MaintenanceItem[] = maint.map((r: any, idx: number) => ({
+        id: String(idx + 1),
+        trainId: r.trainId || r.id || `T${idx + 1}`,
+        trainName: r.trainId || `Train ${idx + 1}`,
+        type: 'repair',
+        status: 'in-progress',
+        priority: 'high',
+        dueDate: new Date().toISOString(),
+        estimatedDuration: 240,
+        description: r.reason || 'Scheduled corrective maintenance based on optimization results',
+        assignedTo: 'Maintenance Team',
+        progress: 0
+      }))
+      setMaintenanceData({
+        routine: [],
+        inspection: [],
+        repair: mapped,
+        alerts: mapped.slice(0, 3).map((m, i) => ({
+          id: String(i + 1),
+          trainId: m.trainId,
+          type: 'critical',
+          message: 'Maintenance required based on optimization results',
+          timestamp: new Date().toISOString(),
+          resolved: false
+        }))
+      })
+    } catch (error) {
+      console.error('Error deriving maintenance data:', error)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   const filteredData = useMemo(() => {
@@ -147,6 +164,32 @@ export default function MaintenancePage() {
     'Completed': '#10b981',
     'Overdue': '#ef4444'
   };
+
+  if (!hasUser) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <div className="max-w-xl mx-auto">
+          <div className="p-8 border rounded-lg text-center">
+            <p className="mb-2">You must be logged in to view Maintenance.</p>
+            <a href="/login" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Login</a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasResults) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <div className="max-w-xl mx-auto">
+          <div className="p-8 border rounded-lg text-center">
+            <p className="mb-2">No data found. Please upload data to continue.</p>
+            <a href="/upload" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Upload</a>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
