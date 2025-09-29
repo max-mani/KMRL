@@ -44,7 +44,7 @@ router.post('/message', async (req: AuthRequest, res) => {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ success: false, message: 'GEMINI_API_KEY not configured' });
+      return res.status(500).json({ success: false, message: 'I\'m not Working RN😴' });
     }
 
     if (!GoogleGenerativeAI) {
