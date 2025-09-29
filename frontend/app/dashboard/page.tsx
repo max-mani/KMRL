@@ -200,60 +200,58 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
               )}
-
-              {results.length > 0 && (
+              {/* Six-Factor Analysis (right side) */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Train Rankings (0-100 Scale)</CardTitle>
+                  <CardTitle>Six-Factor Analysis</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {results
-                    .slice()
-                    .sort((a, b) => b.score - a.score)
-                    .slice(0, 5)
-                    .map((train, index) => (
-                    <div key={train.trainId} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline">#{index + 1}</Badge>
-                        <div>
-                          <p className="font-semibold">{train.trainId}</p>
-                          <p className="text-sm text-muted-foreground">{train.reason}</p>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Object.entries(factorLabels).map(([key, label]) => (
+                      <div key={key} className="p-4 border rounded-lg">
+                        <h4 className="font-semibold mb-3">{label}</h4>
+                        <div className="space-y-2">
+                          {Object.entries(factorColors).map(([status, color]) => (
+                            <div key={status} className="flex items-center gap-2">
+                              <div className={`w-3 h-3 rounded-full ${color}`}></div>
+                              <span className="text-sm capitalize">{status}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold" style={{ color: "var(--kmrl-teal)" }}>{train.score}</p>
-                        <Progress value={train.score} className="w-20 h-2" />
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
-              )}
             </div>
 
-            {/* Six-Factor Analysis */}
+            {results.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Six-Factor Analysis</CardTitle>
+                <CardTitle>Train Rankings (0-100 Scale)</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Object.entries(factorLabels).map(([key, label]) => (
-                    <div key={key} className="p-4 border rounded-lg">
-                      <h4 className="font-semibold mb-3">{label}</h4>
-                      <div className="space-y-2">
-                        {Object.entries(factorColors).map(([status, color]) => (
-                          <div key={status} className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full ${color}`}></div>
-                            <span className="text-sm capitalize">{status}</span>
-                          </div>
-                        ))}
+              <CardContent className="space-y-3">
+                {results
+                  .slice()
+                  .sort((a, b) => b.score - a.score)
+                  .map((train, index) => (
+                  <div key={train.trainId} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Badge variant="outline">#{index + 1}</Badge>
+                      <div>
+                        <p className="font-semibold">{train.trainId}</p>
+                        <p className="text-sm text-muted-foreground">{train.reason}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold" style={{ color: "var(--kmrl-teal)" }}>{train.score}</p>
+                      <Progress value={train.score} className="w-20 h-2" />
+                    </div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
+            )}
           </div>
         </div>
       </section>

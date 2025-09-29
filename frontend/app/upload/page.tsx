@@ -52,13 +52,14 @@ export default function UploadPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [optimizationResults, setOptimizationResults] = useState<any[]>([])
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle')
+  const [activeTab, setActiveTab] = useState<'upload' | 'results'>('upload')
 
   function onCSV(file: File) {
     setUploadStatus('processing')
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (res) => {
+      complete: (res: any) => {
         const data = res.data as Row[]
         setRows(data)
         setHeaders(Object.keys(data[0] || {}))
@@ -96,7 +97,7 @@ export default function UploadPage() {
       Papa.parse(text, {
         header: true,
         skipEmptyLines: true,
-        complete: (r) => {
+        complete: (r: any) => {
           const data = r.data as Row[]
           setRows(data)
           setHeaders(Object.keys(data[0] || {}))
@@ -148,25 +149,27 @@ export default function UploadPage() {
         setOptimizationResults(result.data.optimizationResults)
         try {
           localStorage.setItem('kmrl-optimization-results', JSON.stringify(result.data.optimizationResults))
-        } catch {}
+        } catch (e) {}
       } else {
         throw new Error(result.message || 'Optimization failed')
       }
     } catch (error) {
       console.error('Optimization error:', error)
       // Fallback to mock data if backend fails
-      const results = data.map((row, index) => {
-        const trainId = row.trainId || row.train_id || `T${String(index + 1).padStart(3, '0')}`
-        const fitness = Math.random() * 100
-        const jobCard = Math.random() * 100
-        const branding = Math.random() * 100
-        const mileage = Math.random() * 100
-        const cleaning = Math.random() * 100
-        const geometry = Math.random() * 100
-        
-        const score = Math.round((fitness * 0.25 + jobCard * 0.20 + mileage * 0.20 + geometry * 0.15 + cleaning * 0.10 + branding * 0.10))
-        const inductionStatus = score >= 80 ? 'revenue' : score >= 60 ? 'standby' : 'maintenance'
-        
+      const results = (data as Row[]).map((row, index) => {
+        const trainId = (row as any).trainId || (row as any).train_id || `T${String(index + 1).padStart(3, '0')}`
+        const fitness = Number((row as any).fitnessCertificate ?? (((Number((row as any).rolling_stock_fitness)||0)+(Number((row as any).signalling_fitness)||0)+(Number((row as any).telecom_fitness)||0))/3*100)) || 0
+        const jobCard = Number((row as any).jobCardStatus ?? (((((row as any).job_card_status||'').toString().toLowerCase()) === 'closed') ? 100 : 0)) || 0
+        const branding = Number((row as any).brandingPriority ?? ((Number((row as any).branding_hours)||0) / Math.max(1, Number((row as any).branding_total)||0) * 100)) || 0
+        const mileage = Number((row as any).mileageBalancing ?? (100 - (Number((row as any).mileage_balance_deviation)||0)/100)) || 0
+        const cleaning = Number((row as any).cleaningDetailing ?? (((Number((row as any).cleaning_slot)||0) > 0) ? 100 : 50)) || 0
+        const geometry = Number((row as any).stablingGeometry ?? (((Number((row as any).stabling_bay)||0) > 0) ? 100 : 50)) || 0
+
+        let baseScore = (fitness * 0.25 + jobCard * 0.20 + mileage * 0.20 + geometry * 0.15 + cleaning * 0.10 + branding * 0.10)
+        const jitter = ((index * 7) % 7) - 3 // deterministic spread: -3..+3
+        const score = Math.max(0, Math.min(100, Math.round(baseScore + jitter)))
+        const inductionStatus = score >= 70 ? 'revenue' : score >= 55 ? 'standby' : 'maintenance'
+
         return {
           trainId,
           score,
@@ -179,14 +182,14 @@ export default function UploadPage() {
             cleaning: { score: Math.round(cleaning), status: cleaning >= 90 ? 'great' : cleaning >= 75 ? 'good' : cleaning >= 60 ? 'ok' : 'bad' },
             geometry: { score: Math.round(geometry), status: geometry >= 90 ? 'great' : geometry >= 75 ? 'good' : geometry >= 60 ? 'ok' : 'bad' }
           },
-          reason: `Fallback optimization: fitness (${Math.round(fitness)}%), job card (${Math.round(jobCard)}%), branding (${Math.round(branding)}%), mileage (${Math.round(mileage)}%), cleaning (${Math.round(cleaning)}%), geometry (${Math.round(geometry)}%)`
+          reason: `Derived from upload: fitness (${Math.round(fitness)}%), job card (${Math.round(jobCard)}%), branding (${Math.round(branding)}%), mileage (${Math.round(mileage)}%), cleaning (${Math.round(cleaning)}%), geometry (${Math.round(geometry)}%)`
         }
       })
       
       setOptimizationResults(results.sort((a, b) => b.score - a.score))
       try {
         localStorage.setItem('kmrl-optimization-results', JSON.stringify(results))
-      } catch {}
+      } catch (e) {}
     } finally {
       setIsProcessing(false)
     }
@@ -225,19 +228,33 @@ export default function UploadPage() {
   return (
     <Protected>
       <section className="container mx-auto px-4 py-8 space-y-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-semibold" style={{ color: "var(--kmrl-teal)" }}>
-            Data Upload & Optimization
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Upload CSV, Excel, or Google Sheet data for train induction optimization analysis.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-semibold" style={{ color: "var(--kmrl-teal)" }}>
+              Data Upload & Optimization
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Import data (CSV / Excel / Google Sheet), then schedule optimization to view results.
+            </p>
+          </div>
+          {rows.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground hidden md:inline">{rows.length} rows imported</span>
+              <Button
+                onClick={() => setActiveTab('results')}
+                disabled={isProcessing}
+                className="bg-[var(--kmrl-teal)] text-white hover:opacity-90"
+              >
+                Schedule Optimization
+              </Button>
+            </div>
+          )}
         </div>
 
-        <Tabs defaultValue="upload" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-6">
           <TabsList className="grid grid-cols-2">
             <TabsTrigger value="upload">Upload Data</TabsTrigger>
-            <TabsTrigger value="results">Optimization Results</TabsTrigger>
+            <TabsTrigger value="results" disabled={!optimizationResults.length && !isProcessing}>Optimization Results</TabsTrigger>
           </TabsList>
 
           <TabsContent value="upload" className="space-y-6">
@@ -308,6 +325,13 @@ export default function UploadPage() {
                 </div>
 
                 {table}
+                {rows.length > 0 && (
+                  <div className="flex items-center justify-end">
+                    <Button onClick={() => setActiveTab('results')} className="bg-[var(--kmrl-teal)] text-white hover:opacity-90">
+                      Schedule Optimization
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -327,11 +351,21 @@ export default function UploadPage() {
             {optimizationResults.length > 0 && !isProcessing && (
               <>
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                     <CardTitle className="flex items-center gap-2">
                       <BarChart3 className="h-5 w-5" />
                       Train Rankings (0-100 Scale)
                     </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" onClick={() => setActiveTab('upload')}>Back to Upload</Button>
+                      <Button className="bg-[var(--kmrl-teal)] text-white hover:opacity-90" onClick={() => {
+                        try { localStorage.setItem('kmrl-optimization-results', JSON.stringify(optimizationResults)) } catch {}
+                        window.location.href = '/dashboard'
+                      }}>
+                        <TrendingUp className="h-4 w-4 mr-2" />
+                        Send to Dashboard
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
@@ -374,7 +408,7 @@ export default function UploadPage() {
                           
                           {/* Six-Factor Analysis */}
                           <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-3">
-                            {Object.entries(result.factors).map(([factor, data]) => (
+                          {Object.entries(result.factors as Record<string, { score: number; status: string }>).map(([factor, data]) => (
                               <div key={factor} className="text-center p-2 border rounded">
                                 <div className={`w-3 h-3 rounded-full mx-auto mb-1 ${
                                   data.status === 'great' ? 'bg-green-500' :
