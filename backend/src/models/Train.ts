@@ -221,7 +221,6 @@ const TrainSchema = new Schema<ITrain>({
 });
 
 // Indexes for performance
-TrainSchema.index({ trainId: 1 });
 TrainSchema.index({ status: 1 });
 TrainSchema.index({ 'position.zone': 1 });
 TrainSchema.index({ overallScore: -1 });

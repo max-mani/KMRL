@@ -187,7 +187,7 @@ export class OptimizationEngine {
     };
   }
 
-  private static calculateOverallScore(factors: any, weights: OptimizationWeights): number {
+  public static calculateOverallScore(factors: any, weights: OptimizationWeights): number {
     const weightedScore = 
       factors.fitness * weights.fitness +
       factors.jobCard * weights.jobCard +
@@ -778,13 +778,13 @@ export class OptimizationEngine {
     const now = new Date();
     let score = 100;
     
-    if (train.fitnessCertificates?.rollingStock && new Date(train.fitnessCertificates.rollingStock.validUntil) < now) {
+    if (train.fitnessCertificate?.rollingStock && new Date(train.fitnessCertificate.rollingStock.expiryDate) < now) {
       score -= 50;
     }
-    if (train.fitnessCertificates?.signalling && new Date(train.fitnessCertificates.signalling.validUntil) < now) {
+    if (train.fitnessCertificate?.signalling && new Date(train.fitnessCertificate.signalling.expiryDate) < now) {
       score -= 30;
     }
-    if (train.fitnessCertificates?.telecom && new Date(train.fitnessCertificates.telecom.validUntil) < now) {
+    if (train.fitnessCertificate?.telecom && new Date(train.fitnessCertificate.telecom.expiryDate) < now) {
       score -= 20;
     }
     
@@ -803,54 +803,41 @@ export class OptimizationEngine {
 
   private static calculateBrandingScore(train: any): number {
     // Check branding compliance
-    if (!train.branding) {
+    if (!train.brandingPriority) {
       return 100;
     }
     
-    const completionRate = train.branding.completionRate || 0;
-    return Math.round(completionRate);
+    const completionRate = (train.brandingPriority.completedHours / train.brandingPriority.contractHours) * 100 || 0;
+    return Math.round(Math.min(100, completionRate));
   }
 
   private static calculateMileageScore(train: any): number {
     // Check mileage balance
-    if (!train.mileage) {
+    if (!train.mileageBalancing) {
       return 100;
     }
     
-    const balance = train.mileage.balance || 0;
+    const balance = train.mileageBalancing.score || 0;
     return Math.round(balance);
   }
 
   private static calculateCleaningScore(train: any): number {
     // Check cleaning status
-    if (!train.cleaning) {
+    if (!train.cleaningDetailing) {
       return 100;
     }
     
-    const status = train.cleaning.status;
-    switch (status) {
-      case 'completed': return 100;
-      case 'in-progress': return 70;
-      case 'scheduled': return 50;
-      case 'overdue': return 20;
-      default: return 100;
-    }
+    const score = train.cleaningDetailing.score || 0;
+    return Math.round(score);
   }
 
   private static calculateGeometryScore(train: any): number {
     // Check stabling geometry optimization
-    if (!train.position || !train.position.zone) {
+    if (!train.stablingGeometry) {
       return 100;
     }
     
-    // Higher score for better positioned trains
-    const zone = train.position.zone;
-    switch (zone) {
-      case 'service': return 100;
-      case 'standby': return 80;
-      case 'ibl': return 60;
-      case 'cleaning': return 70;
-      default: return 100;
-    }
+    const score = train.stablingGeometry.score || 0;
+    return Math.round(score);
   }
 }

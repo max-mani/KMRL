@@ -8,7 +8,7 @@ import mongoose from 'mongoose';
 
 import { logger } from './utils/logger';
 import { errorHandler } from './middleware/errorHandler';
-import { authRoutes } from './routes/auth-simple';
+import { authRoutes } from './routes/auth';
 import { userRoutes } from './routes/user';
 import { uploadRoutes } from './routes/upload';
 import { optimizationRoutes } from './routes/optimization';
@@ -19,16 +19,46 @@ import { learningRoutes } from './routes/learning';
 import { mobileAlertsRoutes } from './routes/mobileAlerts';
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: './.env' });
+
+// Debug environment variables
+console.log('Environment variables loaded:');
+console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 // Security middleware
 app.use(helmet());
+
+// CORS configuration with debugging
+const isProduction = process.env.NODE_ENV === 'production';
+
+logger.info(`CORS Origin configured for NODE_ENV=${process.env.NODE_ENV} (isProduction=${isProduction})`);
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // In development, always allow localhost origins
+    if (!isProduction) {
+      return callback(null, true);
+    }
+    
+    // In production, check specific origins
+    const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || ['https://your-netlify-app.netlify.app'];
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Rate limiting

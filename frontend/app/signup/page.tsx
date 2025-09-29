@@ -12,12 +12,46 @@ import { useState } from "react"
 export default function SignupPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    localStorage.setItem("kmrl-user", JSON.stringify({ email }))
-    router.push("/dashboard")
+    setIsLoading(true)
+    setError("")
+
+    try {
+      const response = await fetch('http://localhost:3001/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          firstName,
+          lastName
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        localStorage.setItem("kmrl-user", JSON.stringify(data.data.user))
+        localStorage.setItem("kmrl-token", data.data.token)
+        router.push("/dashboard")
+      } else {
+        setError(data.message || 'Signup failed')
+      }
+    } catch (error) {
+      console.error('Signup failed:', error)
+      setError('Network error. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -30,6 +64,31 @@ export default function SignupPage() {
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={onSubmit}>
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                {error}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name</Label>
+              <Input 
+                id="firstName" 
+                type="text" 
+                value={firstName} 
+                onChange={(e) => setFirstName(e.target.value)} 
+                required 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input 
+                id="lastName" 
+                type="text" 
+                value={lastName} 
+                onChange={(e) => setLastName(e.target.value)} 
+                required 
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -42,10 +101,15 @@ export default function SignupPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={6}
               />
             </div>
-            <Button type="submit" className="w-full bg-[var(--kmrl-teal)] text-white hover:opacity-90">
-              Sign up
+            <Button 
+              type="submit" 
+              className="w-full bg-[var(--kmrl-teal)] text-white hover:opacity-90"
+              disabled={isLoading}
+            >
+              {isLoading ? "Creating Account..." : "Sign up"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               Have an account?{" "}

@@ -148,9 +148,17 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
     await uploadedData.save();
 
     // Run optimization
-    const optimizationResults = processedData.map(train => 
-      OptimizationEngine.calculateTrainScore(train)
-    );
+    const optimizationResults = processedData.map(train => {
+      const factors = {
+        fitness: train.fitnessCertificate,
+        jobCard: train.jobCardStatus,
+        branding: train.brandingPriority,
+        mileage: train.mileageBalancing,
+        cleaning: train.cleaningDetailing,
+        geometry: train.stablingGeometry
+      };
+      return OptimizationEngine.calculateOverallScore(factors, OptimizationEngine['DEFAULT_WEIGHTS']);
+    });
 
     const averageScore = optimizationResults.reduce((sum, result) => sum + result, 0) / optimizationResults.length;
 
@@ -246,9 +254,17 @@ router.post('/google-sheet', authenticate, async (req: AuthRequest, res) => {
     await uploadedData.save();
 
     // Run optimization
-    const optimizationResults = processedData.map(train => 
-      OptimizationEngine.calculateTrainScore(train)
-    );
+    const optimizationResults = processedData.map(train => {
+      const factors = {
+        fitness: train.fitnessCertificate,
+        jobCard: train.jobCardStatus,
+        branding: train.brandingPriority,
+        mileage: train.mileageBalancing,
+        cleaning: train.cleaningDetailing,
+        geometry: train.stablingGeometry
+      };
+      return OptimizationEngine.calculateOverallScore(factors, OptimizationEngine['DEFAULT_WEIGHTS']);
+    });
 
     const averageScore = optimizationResults.reduce((sum, result) => sum + result, 0) / optimizationResults.length;
 
