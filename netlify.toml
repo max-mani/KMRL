@@ -6,6 +6,8 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  # Ensure devDependencies are installed (Tailwind, PostCSS) even when NODE_ENV=production
+  NPM_FLAGS = "--include=dev"
 
 # Cache headers for static assets (optional)
 [[headers]]
