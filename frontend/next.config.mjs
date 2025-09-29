@@ -11,6 +11,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  webpack: (config) => {
+    // Ensure @ alias resolves to project root (frontend)
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      '@': __dirname,
+    }
+    return config
+  },
 }
 
 export default nextConfig
