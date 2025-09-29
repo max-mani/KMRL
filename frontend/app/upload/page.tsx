@@ -146,6 +146,9 @@ export default function UploadPage() {
       
       if (result.success && result.data.optimizationResults) {
         setOptimizationResults(result.data.optimizationResults)
+        try {
+          localStorage.setItem('kmrl-optimization-results', JSON.stringify(result.data.optimizationResults))
+        } catch {}
       } else {
         throw new Error(result.message || 'Optimization failed')
       }
@@ -162,10 +165,12 @@ export default function UploadPage() {
         const geometry = Math.random() * 100
         
         const score = Math.round((fitness * 0.25 + jobCard * 0.20 + mileage * 0.20 + geometry * 0.15 + cleaning * 0.10 + branding * 0.10))
+        const inductionStatus = score >= 80 ? 'revenue' : score >= 60 ? 'standby' : 'maintenance'
         
         return {
           trainId,
           score,
+          inductionStatus,
           factors: {
             fitness: { score: Math.round(fitness), status: fitness >= 90 ? 'great' : fitness >= 75 ? 'good' : fitness >= 60 ? 'ok' : 'bad' },
             jobCard: { score: Math.round(jobCard), status: jobCard >= 90 ? 'great' : jobCard >= 75 ? 'good' : jobCard >= 60 ? 'ok' : 'bad' },
@@ -179,6 +184,9 @@ export default function UploadPage() {
       })
       
       setOptimizationResults(results.sort((a, b) => b.score - a.score))
+      try {
+        localStorage.setItem('kmrl-optimization-results', JSON.stringify(results))
+      } catch {}
     } finally {
       setIsProcessing(false)
     }
@@ -430,7 +438,12 @@ export default function UploadPage() {
                         <FileText className="h-4 w-4 mr-2" />
                         Download Excel Report
                       </Button>
-                      <Button className="w-full" style={{ backgroundColor: "var(--kmrl-teal)" }}>
+                      <Button className="w-full" style={{ backgroundColor: "var(--kmrl-teal)" }} onClick={() => {
+                        try {
+                          localStorage.setItem('kmrl-optimization-results', JSON.stringify(optimizationResults))
+                        } catch {}
+                        window.location.href = '/dashboard'
+                      }}>
                         <TrendingUp className="h-4 w-4 mr-2" />
                         Send to Dashboard
                       </Button>

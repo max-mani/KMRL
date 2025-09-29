@@ -79,6 +79,8 @@ interface OptimizationResult {
 }
 
 export default function DigitalTwinPage() {
+  const [hasUser, setHasUser] = useState<boolean>(false)
+  const [hasResults, setHasResults] = useState<boolean>(true)
   const [trains, setTrains] = useState<TrainPosition[]>([])
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [selectedScenario, setSelectedScenario] = useState<string>('')
@@ -98,6 +100,12 @@ export default function DigitalTwinPage() {
   }
 
   useEffect(() => {
+    try {
+      const user = localStorage.getItem('kmrl-user')
+      setHasUser(!!user)
+      const results = localStorage.getItem('kmrl-optimization-results')
+      setHasResults(!!results)
+    } catch {}
     initializeTrains()
     loadScenarios()
   }, [])
@@ -118,51 +126,28 @@ export default function DigitalTwinPage() {
   }, [isAnimating, trains])
 
   const initializeTrains = () => {
-    const initialTrains: TrainPosition[] = []
-    
-    // Service zone trains
-    for (let i = 0; i < 18; i++) {
-      initialTrains.push({
-        id: `KM${String(i + 1).padStart(2, '0')}`,
-        name: `Train KM${String(i + 1).padStart(2, '0')}`,
-        x: zones.service.x + (i % 9) * 80 + 40,
-        y: zones.service.y + Math.floor(i / 9) * 50 + 25,
-        zone: 'service',
-        bay: `S${i + 1}`,
-        score: Math.floor(Math.random() * 40) + 60, // 60-100
-        status: 'stationary'
+    try {
+      const raw = localStorage.getItem('kmrl-optimization-results')
+      const results: any[] = raw ? JSON.parse(raw) : []
+      const mapped: TrainPosition[] = results.map((r, i) => {
+        const status = (r.inductionStatus || '').toLowerCase()
+        const zone = status === 'revenue' ? 'service' : status === 'standby' ? 'standby' : 'ibl'
+        const base = zones[zone as keyof typeof zones]
+        return {
+          id: r.trainId || `T${i + 1}`,
+          name: r.trainId || `Train ${i + 1}`,
+          x: base.x + ((i * 80) % Math.max(80, base.width - 80)) + 40,
+          y: base.y + (Math.floor(i / 9) * 50 + 25),
+          zone: zone as any,
+          bay: `${zone.toUpperCase().slice(0,2)}${i + 1}`,
+          score: Number(r.score) || 0,
+          status: 'stationary'
+        }
       })
+      setTrains(mapped)
+    } catch {
+      setTrains([])
     }
-    
-    // Standby zone trains
-    for (let i = 0; i < 6; i++) {
-      initialTrains.push({
-        id: `KM${String(i + 19).padStart(2, '0')}`,
-        name: `Train KM${String(i + 19).padStart(2, '0')}`,
-        x: zones.standby.x + i * 90 + 45,
-        y: zones.standby.y + 50,
-        zone: 'standby',
-        bay: `ST${i + 1}`,
-        score: Math.floor(Math.random() * 30) + 50, // 50-80
-        status: 'stationary'
-      })
-    }
-    
-    // IBL zone trains
-    for (let i = 0; i < 1; i++) {
-      initialTrains.push({
-        id: `KM${String(i + 25).padStart(2, '0')}`,
-        name: `Train KM${String(i + 25).padStart(2, '0')}`,
-        x: zones.ibl.x + i * 100 + 50,
-        y: zones.ibl.y + 50,
-        zone: 'ibl',
-        bay: `IBL${i + 1}`,
-        score: Math.floor(Math.random() * 40) + 20, // 20-60
-        status: 'stationary'
-      })
-    }
-    
-    setTrains(initialTrains)
   }
 
   const loadScenarios = () => {
@@ -382,6 +367,32 @@ export default function DigitalTwinPage() {
     setIsAnimating(false)
     setOptimizationResult(null)
     initializeTrains()
+  }
+
+  if (!hasUser) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="mb-2">You must be logged in to view the Digital Twin.</p>
+            <a href="/login" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Login</a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasResults) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="mb-2">No data found. Please upload data to continue.</p>
+            <a href="/upload" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Upload</a>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -83,6 +83,8 @@ interface ComparisonData {
 }
 
 export default function HistoryPage() {
+  const [hasUser, setHasUser] = useState<boolean>(false)
+  const [hasResults, setHasResults] = useState<boolean>(true)
   const [historicalData, setHistoricalData] = useState<HistoricalData>({
     optimizationHistory: [],
     performanceTrends: [],
@@ -95,63 +97,36 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    try {
+      const user = localStorage.getItem('kmrl-user')
+      setHasUser(!!user)
+      const results = localStorage.getItem('kmrl-optimization-results')
+      setHasResults(!!results)
+    } catch {}
+
     const fetchHistoricalData = async () => {
       try {
-        // Mock data - replace with actual API call
-        const mockHistoricalData: HistoricalData = {
-          optimizationHistory: [
-            { date: '2024-01-08', totalTrains: 25, serviceTrains: 17, standbyTrains: 6, maintenanceTrains: 2, averageScore: 82.3, energyEfficiency: 85.2, punctuality: 98.9, brandingCompliance: 93.2, shuntingCost: 180 },
-            { date: '2024-01-09', totalTrains: 25, serviceTrains: 18, standbyTrains: 5, maintenanceTrains: 2, averageScore: 83.1, energyEfficiency: 86.1, punctuality: 99.1, brandingCompliance: 94.1, shuntingCost: 165 },
-            { date: '2024-01-10', totalTrains: 25, serviceTrains: 16, standbyTrains: 7, maintenanceTrains: 2, averageScore: 84.7, energyEfficiency: 87.8, punctuality: 99.3, brandingCompliance: 95.8, shuntingCost: 172 },
-            { date: '2024-01-11', totalTrains: 25, serviceTrains: 19, standbyTrains: 4, maintenanceTrains: 2, averageScore: 83.9, energyEfficiency: 86.9, punctuality: 99.0, brandingCompliance: 94.9, shuntingCost: 158 },
-            { date: '2024-01-12', totalTrains: 25, serviceTrains: 17, standbyTrains: 6, maintenanceTrains: 2, averageScore: 85.2, energyEfficiency: 88.2, punctuality: 99.4, brandingCompliance: 96.2, shuntingCost: 142 },
-            { date: '2024-01-13', totalTrains: 25, serviceTrains: 18, standbyTrains: 5, maintenanceTrains: 2, averageScore: 84.7, energyEfficiency: 87.5, punctuality: 99.2, brandingCompliance: 95.1, shuntingCost: 156 },
-            { date: '2024-01-14', totalTrains: 25, serviceTrains: 18, standbyTrains: 5, maintenanceTrains: 2, averageScore: 84.7, energyEfficiency: 87.5, punctuality: 99.2, brandingCompliance: 95.1, shuntingCost: 156.8 }
-          ],
-          performanceTrends: [
-            { date: '2024-01-08', punctuality: 98.9, energyEfficiency: 85.2, mileageBalance: 89.3, brandingCompliance: 93.2 },
-            { date: '2024-01-09', punctuality: 99.1, energyEfficiency: 86.1, mileageBalance: 90.1, brandingCompliance: 94.1 },
-            { date: '2024-01-10', punctuality: 99.3, energyEfficiency: 87.8, mileageBalance: 91.5, brandingCompliance: 95.8 },
-            { date: '2024-01-11', punctuality: 99.0, energyEfficiency: 86.9, mileageBalance: 92.8, brandingCompliance: 94.9 },
-            { date: '2024-01-12', punctuality: 99.4, energyEfficiency: 88.2, mileageBalance: 93.1, brandingCompliance: 96.2 },
-            { date: '2024-01-13', punctuality: 99.2, energyEfficiency: 87.5, mileageBalance: 92.3, brandingCompliance: 95.1 },
-            { date: '2024-01-14', punctuality: 99.2, energyEfficiency: 87.5, mileageBalance: 92.3, brandingCompliance: 95.1 }
-          ],
-          maintenanceHistory: [
-            { date: '2024-01-08', routineMaintenance: 3, inspections: 2, repairs: 1, totalCost: 45000 },
-            { date: '2024-01-09', routineMaintenance: 2, inspections: 3, repairs: 0, totalCost: 38000 },
-            { date: '2024-01-10', routineMaintenance: 4, inspections: 1, repairs: 2, totalCost: 52000 },
-            { date: '2024-01-11', routineMaintenance: 3, inspections: 2, repairs: 1, totalCost: 41000 },
-            { date: '2024-01-12', routineMaintenance: 2, inspections: 4, repairs: 0, totalCost: 36000 },
-            { date: '2024-01-13', routineMaintenance: 3, inspections: 2, repairs: 1, totalCost: 43000 },
-            { date: '2024-01-14', routineMaintenance: 3, inspections: 2, repairs: 1, totalCost: 42000 }
-          ],
-          energyConsumption: [
-            { date: '2024-01-08', dailyConsumption: 1250, peakHours: 850, offPeakHours: 400, shuntingEnergy: 120 },
-            { date: '2024-01-09', dailyConsumption: 1180, peakHours: 820, offPeakHours: 360, shuntingEnergy: 110 },
-            { date: '2024-01-10', dailyConsumption: 1320, peakHours: 880, offPeakHours: 440, shuntingEnergy: 130 },
-            { date: '2024-01-11', dailyConsumption: 1190, peakHours: 810, offPeakHours: 380, shuntingEnergy: 115 },
-            { date: '2024-01-12', dailyConsumption: 1140, peakHours: 780, offPeakHours: 360, shuntingEnergy: 105 },
-            { date: '2024-01-13', dailyConsumption: 1270, peakHours: 860, offPeakHours: 410, shuntingEnergy: 125 },
-            { date: '2024-01-14', dailyConsumption: 1240, peakHours: 840, offPeakHours: 400, shuntingEnergy: 118 }
-          ]
-        }
-
-        const mockComparisonData: ComparisonData = {
-          today: { averageScore: 84.7, punctuality: 99.2, energyEfficiency: 87.5, cost: 156.8 },
-          yesterday: { averageScore: 85.2, punctuality: 99.4, energyEfficiency: 88.2, cost: 142 },
-          lastWeek: { averageScore: 83.1, punctuality: 99.1, energyEfficiency: 86.1, cost: 165 },
-          lastMonth: { averageScore: 81.8, punctuality: 98.7, energyEfficiency: 84.3, cost: 185 },
-          changes: {
-            averageScoreChange: -0.5,
-            punctualityChange: -0.2,
-            energyEfficiencyChange: -0.7,
-            costChange: 14.8
-          }
-        }
-
-        setHistoricalData(mockHistoricalData)
-        setComparisonData(mockComparisonData)
+        // derive simple history snapshot from uploaded results
+        const raw = localStorage.getItem('kmrl-optimization-results')
+        const results: any[] = raw ? JSON.parse(raw) : []
+        const avg = results.length ? Math.round(results.reduce((s, r) => s + (Number(r.score) || 0), 0) / results.length) : 0
+        const service = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'revenue').length
+        const standby = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'standby').length
+        const maintenance = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance').length
+        const today = new Date().toISOString().slice(0, 10)
+        setHistoricalData({
+          optimizationHistory: [{ date: today, totalTrains: results.length, serviceTrains: service, standbyTrains: standby, maintenanceTrains: maintenance, averageScore: avg, energyEfficiency: 0, punctuality: 0, brandingCompliance: 0, shuntingCost: 0 }],
+          performanceTrends: [{ date: today, punctuality: 0, energyEfficiency: 0, mileageBalance: 0, brandingCompliance: 0 }],
+          maintenanceHistory: [{ date: today, routineMaintenance: 0, inspections: 0, repairs: maintenance, totalCost: 0 }],
+          energyConsumption: [{ date: today, dailyConsumption: 0, peakHours: 0, offPeakHours: 0, shuntingEnergy: 0 }]
+        })
+        setComparisonData({
+          today: { averageScore: avg, punctuality: 0, energyEfficiency: 0, cost: 0 },
+          yesterday: { averageScore: avg, punctuality: 0, energyEfficiency: 0, cost: 0 },
+          lastWeek: { averageScore: avg, punctuality: 0, energyEfficiency: 0, cost: 0 },
+          lastMonth: { averageScore: avg, punctuality: 0, energyEfficiency: 0, cost: 0 },
+          changes: { averageScoreChange: 0, punctualityChange: 0, energyEfficiencyChange: 0, costChange: 0 }
+        })
       } catch (error) {
         console.error('Error fetching historical data:', error)
       } finally {
@@ -172,6 +147,32 @@ export default function HistoryPage() {
     if (change > 0) return 'text-green-600'
     if (change < 0) return 'text-red-600'
     return 'text-gray-600'
+  }
+
+  if (!hasUser) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="mb-2">You must be logged in to view Historical Data.</p>
+            <a href="/login" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Login</a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasResults) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="mb-2">No data found. Please upload data to continue.</p>
+            <a href="/upload" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Upload</a>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
