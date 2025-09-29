@@ -1,3 +1,13 @@
+## Chatbot API and Gemini setup
+
+Set the following environment variable for the chatbot to work:
+
+```
+GEMINI_API_KEY=your_google_generative_ai_api_key
+```
+
+On Render, this key is defined in `render.yaml` as a synced secret. Ensure it is set in the Render Dashboard if `sync: false`.
+
 # KMRL Fleet Optimization Platform - Backend
 
 A comprehensive Node.js backend for the Kochi Metro Rail Limited Fleet Optimization Platform, built with Express, TypeScript, and MongoDB.

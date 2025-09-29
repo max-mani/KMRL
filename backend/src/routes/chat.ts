@@ -44,7 +44,7 @@ router.post('/message', async (req: AuthRequest, res) => {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ success: false, message: 'I\'m not Working RN😴' });
+      return res.status(500).json({ success: false, message: 'Chat failed', error: 'GEMINI_API_KEY not configured' });
     }
 
     if (!GoogleGenerativeAI) {
@@ -68,7 +68,16 @@ router.post('/message', async (req: AuthRequest, res) => {
 
     const prompt = `${systemPreamble}\n\n${historyText ? historyText + '\n' : ''}User: ${message}\nAssistant:`;
 
-    const result = await model.generateContent(prompt);
+    let result: any;
+    try {
+      result = await model.generateContent(prompt);
+    } catch (modelErr: any) {
+      logger.error('Gemini generateContent error:', modelErr);
+      const status = modelErr?.status || modelErr?.response?.status;
+      const statusText = modelErr?.statusText || modelErr?.response?.statusText;
+      const details = modelErr?.message || modelErr?.response?.data || String(modelErr);
+      return res.status(502).json({ success: false, message: 'Chat failed', error: 'Upstream model error', details, status, statusText });
+    }
     const text = result?.response?.text?.() || result?.response?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join(' ') || 'Sorry, I could not generate a response.';
 
     session.history.push({ role: 'user', content: message });
