@@ -113,10 +113,45 @@ export default function UploadPage() {
     }
   }
 
-  // Mock optimization processing
-  function processOptimization(data: Row[]) {
+  // Real optimization processing using Python service
+  async function processOptimization(data: Row[]) {
     setIsProcessing(true)
-    setTimeout(() => {
+    try {
+      // Convert data to the format expected by the backend
+      const processedData = data.map((row, index) => ({
+        trainId: row.trainId || row.train_id || `T${String(index + 1).padStart(3, '0')}`,
+        fitnessCertificate: Number(row.fitnessCertificate) || 0,
+        jobCardStatus: Number(row.jobCardStatus) || 0,
+        brandingPriority: Number(row.brandingPriority) || 0,
+        mileageBalancing: Number(row.mileageBalancing) || 0,
+        cleaningDetailing: Number(row.cleaningDetailing) || 0,
+        stablingGeometry: Number(row.stablingGeometry) || 0
+      }))
+
+      // Send data to backend for Python optimization
+      const response = await fetch('/api/upload/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+        },
+        body: JSON.stringify({ data: processedData })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to process optimization')
+      }
+
+      const result = await response.json()
+      
+      if (result.success && result.data.optimizationResults) {
+        setOptimizationResults(result.data.optimizationResults)
+      } else {
+        throw new Error(result.message || 'Optimization failed')
+      }
+    } catch (error) {
+      console.error('Optimization error:', error)
+      // Fallback to mock data if backend fails
       const results = data.map((row, index) => {
         const trainId = row.trainId || row.train_id || `T${String(index + 1).padStart(3, '0')}`
         const fitness = Math.random() * 100
@@ -139,13 +174,14 @@ export default function UploadPage() {
             cleaning: { score: Math.round(cleaning), status: cleaning >= 90 ? 'great' : cleaning >= 75 ? 'good' : cleaning >= 60 ? 'ok' : 'bad' },
             geometry: { score: Math.round(geometry), status: geometry >= 90 ? 'great' : geometry >= 75 ? 'good' : geometry >= 60 ? 'ok' : 'bad' }
           },
-          reason: `Optimized based on six-factor analysis: fitness (${Math.round(fitness)}%), job card (${Math.round(jobCard)}%), branding (${Math.round(branding)}%), mileage (${Math.round(mileage)}%), cleaning (${Math.round(cleaning)}%), geometry (${Math.round(geometry)}%)`
+          reason: `Fallback optimization: fitness (${Math.round(fitness)}%), job card (${Math.round(jobCard)}%), branding (${Math.round(branding)}%), mileage (${Math.round(mileage)}%), cleaning (${Math.round(cleaning)}%), geometry (${Math.round(geometry)}%)`
         }
       })
       
       setOptimizationResults(results.sort((a, b) => b.score - a.score))
+    } finally {
       setIsProcessing(false)
-    }, 2000)
+    }
   }
 
   const table = useMemo(() => {
@@ -298,7 +334,26 @@ export default function UploadPage() {
                               <Badge variant="outline">#{index + 1}</Badge>
                               <div>
                                 <p className="font-semibold">{result.trainId}</p>
-                                <p className="text-sm text-muted-foreground">{result.reason}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge 
+                                    variant={result.inductionStatus === 'revenue' ? 'default' : 
+                                            result.inductionStatus === 'standby' ? 'secondary' : 'destructive'}
+                                    className="text-xs"
+                                  >
+                                    {result.inductionStatus?.toUpperCase() || 'UNKNOWN'}
+                                  </Badge>
+                                  {result.cleaningSlot > 0 && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Cleaning Slot: {result.cleaningSlot}
+                                    </Badge>
+                                  )}
+                                  {result.stablingBay > 0 && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Bay: {result.stablingBay}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground mt-1">{result.reason}</p>
                               </div>
                             </div>
                             <div className="text-right">

@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { UploadedData, ProcessedTrainData } from '../models/UploadedData';
 import { OptimizationResult } from '../models/OptimizationResult';
 import { OptimizationEngine } from '../services/optimizationEngine';
+import { PythonOptimizationService } from '../services/pythonOptimizationService';
 import { authenticate } from '../middleware/auth';
 import { AuthRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
@@ -147,43 +148,97 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
 
     await uploadedData.save();
 
-    // Run optimization
-    const optimizationResults = processedData.map(train => {
-      const factors = {
-        fitness: train.fitnessCertificate,
-        jobCard: train.jobCardStatus,
-        branding: train.brandingPriority,
-        mileage: train.mileageBalancing,
-        cleaning: train.cleaningDetailing,
-        geometry: train.stablingGeometry
-      };
-      return OptimizationEngine.calculateOverallScore(factors, OptimizationEngine['DEFAULT_WEIGHTS']);
-    });
-
-    const averageScore = optimizationResults.reduce((sum, result) => sum + result, 0) / optimizationResults.length;
-
-    // Save optimization results
-    const optimizationResult = new OptimizationResult({
-      userId: req.user!._id,
-      results: optimizationResults,
-      totalTrains: optimizationResults.length,
-      averageScore: Math.round(averageScore)
-    });
-
-    await optimizationResult.save();
-
-    logger.info(`Data uploaded and processed by user: ${req.user!.email}`);
-
-    res.json({
-      success: true,
-      message: 'Data uploaded and processed successfully',
-      data: {
-        uploadId: uploadedData._id,
-        totalTrains: processedData.length,
-        averageScore: Math.round(averageScore),
-        optimizationResults: optimizationResults.slice(0, 10) // Return first 10 results
+    // Run Python optimization
+    try {
+      const pythonResults = await PythonOptimizationService.runOptimization(processedData);
+      
+      if (!pythonResults.success) {
+        throw new Error(pythonResults.error || 'Python optimization failed');
       }
-    });
+
+      // Convert Python results to our format
+      const optimizationResults = pythonResults.results!.map(result => ({
+        trainId: result.trainId,
+        score: result.overallScore,
+        factors: {
+          fitness: { score: result.fitnessScore, status: result.fitnessScore >= 90 ? 'great' : result.fitnessScore >= 75 ? 'good' : result.fitnessScore >= 60 ? 'ok' : 'bad' },
+          jobCard: { score: result.jobCardScore, status: result.jobCardScore >= 90 ? 'great' : result.jobCardScore >= 75 ? 'good' : result.jobCardScore >= 60 ? 'ok' : 'bad' },
+          branding: { score: result.brandingScore, status: result.brandingScore >= 90 ? 'great' : result.brandingScore >= 75 ? 'good' : result.brandingScore >= 60 ? 'ok' : 'bad' },
+          mileage: { score: result.mileageScore, status: result.mileageScore >= 90 ? 'great' : result.mileageScore >= 75 ? 'good' : result.mileageScore >= 60 ? 'ok' : 'bad' },
+          cleaning: { score: result.cleaningScore, status: result.cleaningScore >= 90 ? 'great' : result.cleaningScore >= 75 ? 'good' : result.cleaningScore >= 60 ? 'ok' : 'bad' },
+          geometry: { score: result.geometryScore, status: result.geometryScore >= 90 ? 'great' : result.geometryScore >= 75 ? 'good' : result.geometryScore >= 60 ? 'ok' : 'bad' }
+        },
+        inductionStatus: result.inductionStatus,
+        cleaningSlot: result.cleaningSlot,
+        stablingBay: result.stablingBay,
+        reason: result.explainability
+      }));
+
+      // Save optimization results
+      const optimizationResult = new OptimizationResult({
+        userId: req.user!._id,
+        results: optimizationResults.map(r => r.score),
+        totalTrains: optimizationResults.length,
+        averageScore: Math.round(pythonResults.summary!.averageScore)
+      });
+
+      await optimizationResult.save();
+
+      logger.info(`Data uploaded and processed by user: ${req.user!.email} using Python optimization`);
+
+      res.json({
+        success: true,
+        message: 'Data uploaded and processed successfully with Python optimization',
+        data: {
+          uploadId: uploadedData._id,
+          totalTrains: processedData.length,
+          averageScore: Math.round(pythonResults.summary!.averageScore),
+          optimizationResults: optimizationResults.slice(0, 10), // Return first 10 results
+          summary: pythonResults.summary
+        }
+      });
+
+    } catch (pythonError) {
+      logger.error('Python optimization failed, falling back to basic optimization:', pythonError);
+      
+      // Fallback to basic optimization
+      const optimizationResults = processedData.map(train => {
+        const factors = {
+          fitness: train.fitnessCertificate,
+          jobCard: train.jobCardStatus,
+          branding: train.brandingPriority,
+          mileage: train.mileageBalancing,
+          cleaning: train.cleaningDetailing,
+          geometry: train.stablingGeometry
+        };
+        return OptimizationEngine.calculateOverallScore(factors, OptimizationEngine['DEFAULT_WEIGHTS']);
+      });
+
+      const averageScore = optimizationResults.reduce((sum, result) => sum + result, 0) / optimizationResults.length;
+
+      // Save optimization results
+      const optimizationResult = new OptimizationResult({
+        userId: req.user!._id,
+        results: optimizationResults,
+        totalTrains: optimizationResults.length,
+        averageScore: Math.round(averageScore)
+      });
+
+      await optimizationResult.save();
+
+      logger.info(`Data uploaded and processed by user: ${req.user!.email} using fallback optimization`);
+
+      res.json({
+        success: true,
+        message: 'Data uploaded and processed successfully (using fallback optimization)',
+        data: {
+          uploadId: uploadedData._id,
+          totalTrains: processedData.length,
+          averageScore: Math.round(averageScore),
+          optimizationResults: optimizationResults.slice(0, 10) // Return first 10 results
+        }
+      });
+    }
 
   } catch (error) {
     logger.error('Upload error:', error);
@@ -253,49 +308,123 @@ router.post('/google-sheet', authenticate, async (req: AuthRequest, res) => {
 
     await uploadedData.save();
 
-    // Run optimization
-    const optimizationResults = processedData.map(train => {
-      const factors = {
-        fitness: train.fitnessCertificate,
-        jobCard: train.jobCardStatus,
-        branding: train.brandingPriority,
-        mileage: train.mileageBalancing,
-        cleaning: train.cleaningDetailing,
-        geometry: train.stablingGeometry
-      };
-      return OptimizationEngine.calculateOverallScore(factors, OptimizationEngine['DEFAULT_WEIGHTS']);
-    });
-
-    const averageScore = optimizationResults.reduce((sum, result) => sum + result, 0) / optimizationResults.length;
-
-    // Save optimization results
-    const optimizationResult = new OptimizationResult({
-      userId: req.user!._id,
-      results: optimizationResults,
-      totalTrains: optimizationResults.length,
-      averageScore: Math.round(averageScore)
-    });
-
-    await optimizationResult.save();
-
-    logger.info(`Google Sheet data imported and processed by user: ${req.user!.email}`);
-
-    res.json({
-      success: true,
-      message: 'Google Sheet data imported and processed successfully',
-      data: {
-        uploadId: uploadedData._id,
-        totalTrains: processedData.length,
-        averageScore: Math.round(averageScore),
-        optimizationResults: optimizationResults.slice(0, 10) // Return first 10 results
+    // Run Python optimization
+    try {
+      const pythonResults = await PythonOptimizationService.runOptimization(processedData);
+      
+      if (!pythonResults.success) {
+        throw new Error(pythonResults.error || 'Python optimization failed');
       }
-    });
+
+      // Convert Python results to our format
+      const optimizationResults = pythonResults.results!.map(result => ({
+        trainId: result.trainId,
+        score: result.overallScore,
+        factors: {
+          fitness: { score: result.fitnessScore, status: result.fitnessScore >= 90 ? 'great' : result.fitnessScore >= 75 ? 'good' : result.fitnessScore >= 60 ? 'ok' : 'bad' },
+          jobCard: { score: result.jobCardScore, status: result.jobCardScore >= 90 ? 'great' : result.jobCardScore >= 75 ? 'good' : result.jobCardScore >= 60 ? 'ok' : 'bad' },
+          branding: { score: result.brandingScore, status: result.brandingScore >= 90 ? 'great' : result.brandingScore >= 75 ? 'good' : result.brandingScore >= 60 ? 'ok' : 'bad' },
+          mileage: { score: result.mileageScore, status: result.mileageScore >= 90 ? 'great' : result.mileageScore >= 75 ? 'good' : result.mileageScore >= 60 ? 'ok' : 'bad' },
+          cleaning: { score: result.cleaningScore, status: result.cleaningScore >= 90 ? 'great' : result.cleaningScore >= 75 ? 'good' : result.cleaningScore >= 60 ? 'ok' : 'bad' },
+          geometry: { score: result.geometryScore, status: result.geometryScore >= 90 ? 'great' : result.geometryScore >= 75 ? 'good' : result.geometryScore >= 60 ? 'ok' : 'bad' }
+        },
+        inductionStatus: result.inductionStatus,
+        cleaningSlot: result.cleaningSlot,
+        stablingBay: result.stablingBay,
+        reason: result.explainability
+      }));
+
+      // Save optimization results
+      const optimizationResult = new OptimizationResult({
+        userId: req.user!._id,
+        results: optimizationResults.map(r => r.score),
+        totalTrains: optimizationResults.length,
+        averageScore: Math.round(pythonResults.summary!.averageScore)
+      });
+
+      await optimizationResult.save();
+
+      logger.info(`Google Sheet data imported and processed by user: ${req.user!.email} using Python optimization`);
+
+      res.json({
+        success: true,
+        message: 'Google Sheet data imported and processed successfully with Python optimization',
+        data: {
+          uploadId: uploadedData._id,
+          totalTrains: processedData.length,
+          averageScore: Math.round(pythonResults.summary!.averageScore),
+          optimizationResults: optimizationResults.slice(0, 10), // Return first 10 results
+          summary: pythonResults.summary
+        }
+      });
+
+    } catch (pythonError) {
+      logger.error('Python optimization failed, falling back to basic optimization:', pythonError);
+      
+      // Fallback to basic optimization
+      const optimizationResults = processedData.map(train => {
+        const factors = {
+          fitness: train.fitnessCertificate,
+          jobCard: train.jobCardStatus,
+          branding: train.brandingPriority,
+          mileage: train.mileageBalancing,
+          cleaning: train.cleaningDetailing,
+          geometry: train.stablingGeometry
+        };
+        return OptimizationEngine.calculateOverallScore(factors, OptimizationEngine['DEFAULT_WEIGHTS']);
+      });
+
+      const averageScore = optimizationResults.reduce((sum, result) => sum + result, 0) / optimizationResults.length;
+
+      // Save optimization results
+      const optimizationResult = new OptimizationResult({
+        userId: req.user!._id,
+        results: optimizationResults,
+        totalTrains: optimizationResults.length,
+        averageScore: Math.round(averageScore)
+      });
+
+      await optimizationResult.save();
+
+      logger.info(`Google Sheet data imported and processed by user: ${req.user!.email} using fallback optimization`);
+
+      res.json({
+        success: true,
+        message: 'Google Sheet data imported and processed successfully (using fallback optimization)',
+        data: {
+          uploadId: uploadedData._id,
+          totalTrains: processedData.length,
+          averageScore: Math.round(averageScore),
+          optimizationResults: optimizationResults.slice(0, 10) // Return first 10 results
+        }
+      });
+    }
 
   } catch (error) {
     logger.error('Google Sheet import error:', error);
     res.status(500).json({
       success: false,
       message: 'Error importing Google Sheet data'
+    });
+  }
+});
+
+// GET /api/upload/health - Check Python optimization service health
+router.get('/health', async (req, res) => {
+  try {
+    const isHealthy = await PythonOptimizationService.checkServiceHealth();
+    
+    res.json({
+      success: true,
+      pythonService: isHealthy ? 'healthy' : 'unhealthy',
+      message: isHealthy ? 'Python optimization service is running' : 'Python optimization service is not available'
+    });
+  } catch (error) {
+    logger.error('Health check error:', error);
+    res.status(500).json({
+      success: false,
+      pythonService: 'error',
+      message: 'Health check failed'
     });
   }
 });
