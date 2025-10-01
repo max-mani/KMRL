@@ -111,12 +111,12 @@ export default function HistoryPage() {
         const raw = localStorage.getItem('kmrl-optimization-results')
         const results: any[] = raw ? JSON.parse(raw) : []
         const avg = results.length ? Math.round(results.reduce((s, r) => s + (Number(r.score) || 0), 0) / results.length) : 0
-        const service = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'revenue').length
-        const standby = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'standby').length
-        const maintenance = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance').length
+        const running = results.filter(r => Number(r.score) >= 80).length
+        const standby = results.filter(r => Number(r.score) >= 45 && Number(r.score) < 80).length
+        const maintenance = results.filter(r => Number(r.score) < 45).length
         const today = new Date().toISOString().slice(0, 10)
         setHistoricalData({
-          optimizationHistory: [{ date: today, totalTrains: results.length, serviceTrains: service, standbyTrains: standby, maintenanceTrains: maintenance, averageScore: avg, energyEfficiency: 0, punctuality: 0, brandingCompliance: 0, shuntingCost: 0 }],
+          optimizationHistory: [{ date: today, totalTrains: results.length, serviceTrains: running, standbyTrains: standby, maintenanceTrains: maintenance, averageScore: avg, energyEfficiency: 0, punctuality: 0, brandingCompliance: 0, shuntingCost: 0 }],
           performanceTrends: [{ date: today, punctuality: 0, energyEfficiency: 0, mileageBalance: 0, brandingCompliance: 0 }],
           maintenanceHistory: [{ date: today, routineMaintenance: 0, inspections: 0, repairs: maintenance, totalCost: 0 }],
           energyConsumption: [{ date: today, dailyConsumption: 0, peakHours: 0, offPeakHours: 0, shuntingEnergy: 0 }]

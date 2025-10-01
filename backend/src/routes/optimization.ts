@@ -247,7 +247,7 @@ router.get('/fleet-status', authenticate, async (req: AuthRequest, res) => {
     todayResult.results.forEach(result => {
       if (result.score >= 80) {
         statusCounts.running++;
-      } else if (result.score >= 60) {
+      } else if (result.score >= 45) {
         statusCounts.standby++;
       } else {
         statusCounts.maintenance++;

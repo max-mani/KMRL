@@ -38,25 +38,39 @@ import {
   Cell,
 } from "recharts"
 
-// Mock auth guard
+// Mock auth guard with mounted gate to avoid SSR/CSR mismatch
 function Protected({ children }: { children: React.ReactNode }) {
-  if (typeof window !== "undefined") {
-    const user = localStorage.getItem("kmrl-user")
-    if (!user) {
-      return (
-        <div className="container mx-auto px-4 py-12">
-          <Card>
-            <CardContent className="py-8 text-center">
-              <p className="mb-2">You must be logged in to view the dashboard.</p>
-              <a href="/login" className="underline" style={{ color: "var(--kmrl-teal)" }}>
-                Go to Login
-              </a>
-            </CardContent>
-          </Card>
-        </div>
-      )
+  const [mounted, setMounted] = useState(false)
+  const [isAuthed, setIsAuthed] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+    try {
+      const user = localStorage.getItem("kmrl-user")
+      setIsAuthed(!!user)
+    } catch {
+      setIsAuthed(false)
     }
+  }, [])
+
+  // During SSR and before mount, render nothing to keep markup identical
+  if (!mounted || isAuthed === null) return null
+
+  if (!isAuthed) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <Card>
+          <CardContent className="py-8 text-center">
+            <p className="mb-2">You must be logged in to view the dashboard.</p>
+            <a href="/login" className="underline" style={{ color: "var(--kmrl-teal)" }}>
+              Go to Login
+            </a>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
+
   return <>{children}</>
 }
 
@@ -100,13 +114,13 @@ export default function DashboardPage() {
   }, [])
   const getScoreTextClass = (value: number) => {
     if (value >= 80) return 'text-green-600'
-    if (value >= 60) return 'text-yellow-600'
+    if (value >= 45) return 'text-yellow-600'
     return 'text-red-600'
   }
 
   const getBarClass = (value: number) => {
     if (value >= 80) return 'bg-green-500'
-    if (value >= 60) return 'bg-yellow-500'
+    if (value >= 45) return 'bg-yellow-500'
     return 'bg-red-500'
   }
 
@@ -159,7 +173,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-green-600">Running</p>
-                      <p className="text-2xl font-bold text-green-700">{results.filter(r => (r.inductionStatus || '').toLowerCase() === 'revenue').length}</p>
+                      <p className="text-2xl font-bold text-green-700">{results.filter(r => Number(r.score) >= 80).length}</p>
                     </div>
                     <Train className="h-8 w-8 text-green-600" />
                   </div>
@@ -170,7 +184,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-yellow-600">Standby</p>
-                      <p className="text-2xl font-bold text-yellow-700">{results.filter(r => (r.inductionStatus || '').toLowerCase() === 'standby').length}</p>
+                      <p className="text-2xl font-bold text-yellow-700">{results.filter(r => Number(r.score) >= 45 && Number(r.score) < 80).length}</p>
                     </div>
                     <Clock className="h-8 w-8 text-yellow-600" />
                   </div>
@@ -181,7 +195,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-red-600">Maintenance</p>
-                      <p className="text-2xl font-bold text-red-700">{results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance').length}</p>
+                      <p className="text-2xl font-bold text-red-700">{results.filter(r => Number(r.score) < 45).length}</p>
                     </div>
                     <AlertTriangle className="h-8 w-8 text-red-600" />
                   </div>
@@ -199,9 +213,9 @@ export default function DashboardPage() {
                 <CardContent className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={[
-                      { status: 'Running', count: results.filter(r => (r.inductionStatus || '').toLowerCase() === 'revenue').length },
-                      { status: 'Standby', count: results.filter(r => (r.inductionStatus || '').toLowerCase() === 'standby').length },
-                      { status: 'Maintenance', count: results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance').length },
+                      { status: 'Running', count: results.filter(r => Number(r.score) >= 80).length },
+                      { status: 'Standby', count: results.filter(r => Number(r.score) >= 45 && Number(r.score) < 80).length },
+                      { status: 'Maintenance', count: results.filter(r => Number(r.score) < 45).length },
                     ]}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="status" />

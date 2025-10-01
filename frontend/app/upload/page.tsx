@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,25 +23,38 @@ import * as XLSX from "xlsx"
 
 type Row = Record<string, string | number | null | undefined>
 
-// Mock auth guard
+// Mock auth guard with mounted gate to avoid SSR/CSR mismatch
 function Protected({ children }: { children: React.ReactNode }) {
-  if (typeof window !== "undefined") {
-    const user = localStorage.getItem("kmrl-user")
-    if (!user) {
-      return (
-        <div className="container mx-auto px-4 py-12">
-          <Card>
-            <CardContent className="py-8 text-center">
-              <p className="mb-2">You must be logged in to upload data.</p>
-              <a href="/login" className="underline" style={{ color: "var(--kmrl-teal)" }}>
-                Go to Login
-              </a>
-            </CardContent>
-          </Card>
-        </div>
-      )
+  const [mounted, setMounted] = useState(false)
+  const [isAuthed, setIsAuthed] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+    try {
+      const user = localStorage.getItem("kmrl-user")
+      setIsAuthed(!!user)
+    } catch {
+      setIsAuthed(false)
     }
+  }, [])
+
+  if (!mounted || isAuthed === null) return null
+
+  if (!isAuthed) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <Card>
+          <CardContent className="py-8 text-center">
+            <p className="mb-2">You must be logged in to upload data.</p>
+            <a href="/login" className="underline" style={{ color: "var(--kmrl-teal)" }}>
+              Go to Login
+            </a>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
+
   return <>{children}</>
 }
 

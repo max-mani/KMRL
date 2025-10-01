@@ -74,9 +74,9 @@ export default function PerformancePage() {
         const results: any[] = raw ? JSON.parse(raw) : []
         const scores = results.map(r => Number(r.score) || 0)
         const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
-        const standby = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'standby').length
-        const service = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'revenue').length
-        const maintenance = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance').length
+        const running = results.filter(r => Number(r.score) >= 80).length
+        const standby = results.filter(r => Number(r.score) >= 45 && Number(r.score) < 80).length
+        const maintenance = results.filter(r => Number(r.score) < 45).length
         setPerformanceData({
           kpis: {
             punctuality: 0,
@@ -88,7 +88,7 @@ export default function PerformancePage() {
           },
           trends: { punctuality: [], energyEfficiency: [], mileageBalance: [], brandingCompliance: [] },
           fleetDistribution: [
-            { name: 'Service', value: service, color: '#10b981' },
+            { name: 'Running', value: running, color: '#10b981' },
             { name: 'Standby', value: standby, color: '#f59e0b' },
             { name: 'Maintenance', value: maintenance, color: '#ef4444' }
           ],
