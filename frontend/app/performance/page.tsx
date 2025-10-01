@@ -74,9 +74,9 @@ export default function PerformancePage() {
         const results: any[] = raw ? JSON.parse(raw) : []
         const scores = results.map(r => Number(r.score) || 0)
         const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
-        const running = results.filter(r => Number(r.score) >= 80).length
-        const standby = results.filter(r => Number(r.score) >= 45 && Number(r.score) < 80).length
-        const maintenance = results.filter(r => Number(r.score) < 45).length
+        const running = results.filter(r => Number(r.score) >= 65).length
+        const standby = results.filter(r => Number(r.score) >= 50 && Number(r.score) < 65).length
+        const maintenance = results.filter(r => Number(r.score) < 50).length
         setPerformanceData({
           kpis: {
             punctuality: 0,

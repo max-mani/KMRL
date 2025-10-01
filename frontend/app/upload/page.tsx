@@ -333,7 +333,7 @@ export default function UploadPage() {
         let baseScore = (fitness * 0.25 + jobCard * 0.20 + mileage * 0.20 + geometry * 0.15 + cleaning * 0.10 + branding * 0.10)
         const jitter = ((index * 7) % 7) - 3 // deterministic spread: -3..+3
         const score = Math.max(0, Math.min(100, Math.round(baseScore + jitter)))
-        const inductionStatus = score >= 70 ? 'revenue' : score >= 55 ? 'standby' : 'maintenance'
+        const inductionStatus = score >= 65 ? 'running' : score >= 50 ? 'standby' : 'maintenance'
 
         return {
           trainId,
@@ -634,7 +634,7 @@ export default function UploadPage() {
                                 <p className="font-semibold">{result.trainId}</p>
                                 <div className="flex items-center gap-2 mt-1">
                                   <Badge 
-                                    variant={result.inductionStatus === 'revenue' ? 'default' : 
+                                    variant={result.inductionStatus === 'running' ? 'default' : 
                                             result.inductionStatus === 'standby' ? 'secondary' : 'destructive'}
                                     className="text-xs"
                                   >

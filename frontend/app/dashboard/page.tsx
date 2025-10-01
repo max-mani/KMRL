@@ -156,14 +156,14 @@ export default function DashboardPage() {
     })()
   }, [results])
   const getScoreTextClass = (value: number) => {
-    if (value >= 80) return 'text-green-600'
-    if (value >= 45) return 'text-yellow-600'
+    if (value >= 65) return 'text-green-600'
+    if (value >= 50) return 'text-yellow-600'
     return 'text-red-600'
   }
 
   const getBarClass = (value: number) => {
-    if (value >= 80) return 'bg-green-500'
-    if (value >= 45) return 'bg-yellow-500'
+    if (value >= 65) return 'bg-green-500'
+    if (value >= 50) return 'bg-yellow-500'
     return 'bg-red-500'
   }
 
@@ -216,7 +216,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-green-600">Running</p>
-                      <p className="text-2xl font-bold text-green-700">{results.filter(r => Number(r.score) >= 80).length}</p>
+                      <p className="text-2xl font-bold text-green-700">{results.filter(r => Number(r.score) >= 65).length}</p>
                     </div>
                     <Train className="h-8 w-8 text-green-600" />
                   </div>
@@ -227,7 +227,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-yellow-600">Standby</p>
-                      <p className="text-2xl font-bold text-yellow-700">{results.filter(r => Number(r.score) >= 45 && Number(r.score) < 80).length}</p>
+                      <p className="text-2xl font-bold text-yellow-700">{results.filter(r => Number(r.score) >= 50 && Number(r.score) < 65).length}</p>
                     </div>
                     <Clock className="h-8 w-8 text-yellow-600" />
                   </div>
@@ -238,7 +238,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-red-600">Maintenance</p>
-                      <p className="text-2xl font-bold text-red-700">{results.filter(r => Number(r.score) < 45).length}</p>
+                      <p className="text-2xl font-bold text-red-700">{results.filter(r => Number(r.score) < 50).length}</p>
                     </div>
                     <AlertTriangle className="h-8 w-8 text-red-600" />
                   </div>
@@ -256,9 +256,9 @@ export default function DashboardPage() {
                 <CardContent className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={[
-                      { status: 'Running', count: results.filter(r => Number(r.score) >= 80).length },
-                      { status: 'Standby', count: results.filter(r => Number(r.score) >= 45 && Number(r.score) < 80).length },
-                      { status: 'Maintenance', count: results.filter(r => Number(r.score) < 45).length },
+                      { status: 'Running', count: results.filter(r => Number(r.score) >= 65).length },
+                      { status: 'Standby', count: results.filter(r => Number(r.score) >= 50 && Number(r.score) < 65).length },
+                      { status: 'Maintenance', count: results.filter(r => Number(r.score) < 50).length },
                     ]}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="status" />

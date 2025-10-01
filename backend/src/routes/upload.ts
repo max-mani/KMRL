@@ -183,14 +183,14 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
         trainId: result.trainId,
         score: result.overallScore,
         factors: {
-          fitness: { score: result.fitnessScore, status: result.fitnessScore >= 90 ? 'great' : result.fitnessScore >= 75 ? 'good' : result.fitnessScore >= 60 ? 'ok' : 'bad' },
-          jobCard: { score: result.jobCardScore, status: result.jobCardScore >= 90 ? 'great' : result.jobCardScore >= 75 ? 'good' : result.jobCardScore >= 60 ? 'ok' : 'bad' },
-          branding: { score: result.brandingScore, status: result.brandingScore >= 90 ? 'great' : result.brandingScore >= 75 ? 'good' : result.brandingScore >= 60 ? 'ok' : 'bad' },
-          mileage: { score: result.mileageScore, status: result.mileageScore >= 90 ? 'great' : result.mileageScore >= 75 ? 'good' : result.mileageScore >= 60 ? 'ok' : 'bad' },
-          cleaning: { score: result.cleaningScore, status: result.cleaningScore >= 90 ? 'great' : result.cleaningScore >= 75 ? 'good' : result.cleaningScore >= 60 ? 'ok' : 'bad' },
-          geometry: { score: result.geometryScore, status: result.geometryScore >= 90 ? 'great' : result.geometryScore >= 75 ? 'good' : result.geometryScore >= 60 ? 'ok' : 'bad' }
+          fitness: { score: result.fitnessScore, status: result.fitnessScore >= 70 ? 'great' : result.fitnessScore >= 55 ? 'good' : result.fitnessScore >= 40 ? 'ok' : 'bad' },
+          jobCard: { score: result.jobCardScore, status: result.jobCardScore >= 70 ? 'great' : result.jobCardScore >= 55 ? 'good' : result.jobCardScore >= 40 ? 'ok' : 'bad' },
+          branding: { score: result.brandingScore, status: result.brandingScore >= 70 ? 'great' : result.brandingScore >= 55 ? 'good' : result.brandingScore >= 40 ? 'ok' : 'bad' },
+          mileage: { score: result.mileageScore, status: result.mileageScore >= 70 ? 'great' : result.mileageScore >= 55 ? 'good' : result.mileageScore >= 40 ? 'ok' : 'bad' },
+          cleaning: { score: result.cleaningScore, status: result.cleaningScore >= 70 ? 'great' : result.cleaningScore >= 55 ? 'good' : result.cleaningScore >= 40 ? 'ok' : 'bad' },
+          geometry: { score: result.geometryScore, status: result.geometryScore >= 70 ? 'great' : result.geometryScore >= 55 ? 'good' : result.geometryScore >= 40 ? 'ok' : 'bad' }
         },
-        inductionStatus: result.inductionStatus,
+        inductionStatus: result.overallScore >= 65 ? 'running' : result.overallScore >= 50 ? 'standby' : 'maintenance',
         cleaningSlot: result.cleaningSlot,
         stablingBay: result.stablingBay,
         reason: result.explainability
@@ -262,8 +262,8 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
 
       const responseResults = processedData.map((p, idx) => {
         const score = Math.round(scores[idx] || 0);
-        const toStatus = (v: number) => (v >= 85 ? 'great' : v >= 65 ? 'good' : v >= 45 ? 'ok' : 'bad');
-        const inductionStatus = score >= 70 ? 'revenue' : score >= 55 ? 'standby' : 'maintenance';
+        const toStatus = (v: number) => (v >= 70 ? 'great' : v >= 55 ? 'good' : v >= 40 ? 'ok' : 'bad');
+        const inductionStatus = score >= 65 ? 'running' : score >= 40 ? 'standby' : 'maintenance';
         return {
           trainId: p.trainId,
           score,

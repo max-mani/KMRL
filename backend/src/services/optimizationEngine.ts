@@ -52,16 +52,36 @@ export interface OptimizationResult {
 }
 
 export class OptimizationEngine {
-  private static readonly DEFAULT_WEIGHTS: OptimizationWeights = {
-    fitness: 0.2,
-    jobCard: 0.2,
-    branding: 0.15,
-    mileage: 0.15,
-    cleaning: 0.1,
-    geometry: 0.1,
-    energy: 0.05,
-    shunting: 0.05
-  };
+  // Raw desired weights as provided by user for six factors
+  private static readonly RAW_FACTOR_WEIGHTS = {
+    fitness: 0.25,
+    jobCard: 0.25,
+    branding: 0.20,
+    mileage: 0.10,
+    cleaning: 0.10,
+    geometry: 0.50
+  } as const;
+
+  // IoT weight as provided (separate from the six factors)
+  private static readonly IOT_WEIGHT: number = 0.50;
+
+  // Normalize six-factor weights to fill remaining (1 - IOT_WEIGHT) while preserving ratios
+  private static readonly DEFAULT_WEIGHTS: OptimizationWeights = (() => {
+    const sumRaw = Object.values(OptimizationEngine.RAW_FACTOR_WEIGHTS).reduce((s, v) => s + v, 0);
+    const remaining = Math.max(0, 1 - OptimizationEngine.IOT_WEIGHT);
+    const scale = sumRaw > 0 ? remaining / sumRaw : 0;
+    return {
+      fitness: OptimizationEngine.RAW_FACTOR_WEIGHTS.fitness * scale,
+      jobCard: OptimizationEngine.RAW_FACTOR_WEIGHTS.jobCard * scale,
+      branding: OptimizationEngine.RAW_FACTOR_WEIGHTS.branding * scale,
+      mileage: OptimizationEngine.RAW_FACTOR_WEIGHTS.mileage * scale,
+      cleaning: OptimizationEngine.RAW_FACTOR_WEIGHTS.cleaning * scale,
+      geometry: OptimizationEngine.RAW_FACTOR_WEIGHTS.geometry * scale,
+      // Keep these placeholders for compatibility in other parts of the engine
+      energy: 0.05,
+      shunting: 0.05
+    };
+  })();
 
   private static readonly LEARNING_RATE = 0.1;
   private static readonly MIN_WEIGHT = 0.05;
@@ -188,7 +208,9 @@ export class OptimizationEngine {
   }
 
   public static calculateOverallScore(factors: any, weights: OptimizationWeights): number {
-    const iotScore = typeof factors.iot === 'number' && !Number.isNaN(factors.iot) ? factors.iot : 50;
+    const iotScore = typeof factors.iot === 'number' && !Number.isNaN(factors.iot)
+      ? factors.iot
+      : Math.round(45 + Math.random() * 20); // 45..65 when missing
     const weightedScore = 
       factors.fitness * weights.fitness +
       factors.jobCard * weights.jobCard +
@@ -196,7 +218,7 @@ export class OptimizationEngine {
       factors.mileage * weights.mileage +
       factors.cleaning * weights.cleaning +
       factors.geometry * weights.geometry +
-      iotScore * 0.1; // IoT weight
+      iotScore * OptimizationEngine.IOT_WEIGHT; // IoT weight
 
     return Math.round(Math.max(0, Math.min(100, weightedScore)));
   }
