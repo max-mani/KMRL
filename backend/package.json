@@ -4,7 +4,11 @@
   "description": "KMRL Fleet Optimization Platform Backend",
   "main": "dist/server.js",
   "scripts": {
+<<<<<<< HEAD
     "dev": "cross-env MONGODB_URI=mongodb+srv://manikandan:Mani19200503@cluster0.cuh1ybv.mongodb.net/kmrl-fleet JWT_SECRET=kmrl-fleet-optimization-super-secret-jwt-key-2024 PORT=3001 NODE_ENV=development CORS_ORIGIN=http://localhost:3000 GEMINI_API_KEY=AIzaSyB34IkofKqnqDmbw5jfjKxj7CWj9ln8qVc nodemon src/server.ts",
+=======
+    "dev": "cross-env MONGODB_URI=mongodb+srv://manikandan:Mani19200503@cluster0.cuh1ybv.mongodb.net/kmrl-fleet JWT_SECRET=kmrl-fleet-optimization-super-secret-jwt-key-2024 PORT=3001 NODE_ENV=development GEMINI_API_KEY=AIzaSyDJBwrJIYZLLdMIIOixThvrJhyKCSoSgT0 CORS_ORIGIN=http://localhost:3000 nodemon src/server.ts",
+>>>>>>> b4be37136e31beb7c8c830544e2093c43b81b8bf
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "jest",
