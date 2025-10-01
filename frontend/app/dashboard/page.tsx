@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
+import GATracker from "@/components/ga-tracker"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -117,6 +118,7 @@ export default function DashboardPage() {
   return (
     <Protected>
       <section className="container mx-auto px-4 py-8">
+        <GATracker page="fleet_status" />
         <div className="mb-6 flex items-center justify-between">
           <div>
           <h1 className="text-2xl md:text-3xl font-semibold text-balance" style={{ color: "var(--kmrl-teal)" }}>

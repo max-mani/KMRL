@@ -1,3 +1,12 @@
+Environment variables for Firebase Storage (optional):
+
+- FIREBASE_PROJECT_ID
+- FIREBASE_CLIENT_EMAIL
+- FIREBASE_PRIVATE_KEY (use \n for newlines)
+- FIREBASE_STORAGE_BUCKET (e.g., your-project.appspot.com)
+
+If not configured, uploads will be processed but file storage URL will be empty.
+
 ## Chatbot API and Gemini setup
 
 Set the following environment variable for the chatbot to work:

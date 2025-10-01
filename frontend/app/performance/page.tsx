@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import GATracker from "@/components/ga-tracker"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -154,6 +155,7 @@ export default function PerformancePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <GATracker page="performance" />
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">System Performance</h1>
         <p className="text-muted-foreground">

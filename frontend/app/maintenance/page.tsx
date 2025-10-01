@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import GATracker from "@/components/ga-tracker"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -253,6 +254,7 @@ export default function MaintenancePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <GATracker page="maintenance" />
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight mb-1">Maintenance Hub</h1>
         <p className="text-muted-foreground">

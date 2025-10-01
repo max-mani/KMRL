@@ -4,20 +4,21 @@
   "description": "KMRL Fleet Optimization Platform Backend",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "cross-env MONGODB_URI=mongodb+srv://manikandan:Mani19200503@cluster0.cuh1ybv.mongodb.net/kmrl-fleet JWT_SECRET=kmrl-fleet-optimization-super-secret-jwt-key-2024 PORT=3001 NODE_ENV=development CORS_ORIGIN=http://localhost:3000 nodemon src/server.ts",
+    "dev": "cross-env MONGODB_URI=mongodb+srv://manikandan:Mani19200503@cluster0.cuh1ybv.mongodb.net/kmrl-fleet JWT_SECRET=kmrl-fleet-optimization-super-secret-jwt-key-2024 PORT=3001 NODE_ENV=development CORS_ORIGIN=http://localhost:3000 GEMINI_API_KEY=AIzaSyB34IkofKqnqDmbw5jfjKxj7CWj9ln8qVc nodemon src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "jest",
     "postinstall": "npm run build"
   },
   "dependencies": {
-    "@types/node": "^20.10.5",
     "@google/generative-ai": "^0.14.0",
+    "@types/node": "^20.10.5",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
+    "firebase-admin": "^12.7.0",
     "helmet": "^7.1.0",
     "joi": "^17.11.0",
     "jsonwebtoken": "^9.0.2",

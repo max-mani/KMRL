@@ -13,7 +13,7 @@ import io
 import altair as alt
 import json
 from plotly.subplots import make_subplots
-from model import OptiInductChatbot
+# Chatbot removed; no import needed
 
 # ----------------------------
 # Enhanced Configuration
@@ -123,8 +123,7 @@ def show_enhanced_charts(induction_list):
     "⚙️ Model Management",
     "💬 Chat Assistant"
 ])
-    if 'chatbot' not in st.session_state:
-        st.session_state.chatbot = OptiInductChatbot()
+    # Chatbot removed; no chat state initialized
 
     with tab1:
         col1, col2 = st.columns(2)
@@ -483,12 +482,11 @@ def main():
     enhanced_model = model.EnhancedTrainInductionModel()
     
     # Main tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "📊 Dashboard", 
         "🔬 What-If Simulator", 
         "🔍 Explainability",
-        "⚙️ Model Management",
-        "💬 Chat Assistant"
+        "⚙️ Model Management"
     ])
     
     # Global state
@@ -496,8 +494,7 @@ def main():
         st.session_state.induction_list = None
     if 'sample_data' not in st.session_state:
         st.session_state.sample_data = None
-    if 'chatbot' not in st.session_state:
-        st.session_state.chatbot = OptiInductChatbot()
+    # Chatbot removed; no chat session state maintained
     
     with tab1:
         st.markdown("### 📥 Data Input & Optimization")
@@ -570,7 +567,7 @@ def main():
                         
                         st.success("✅ Enhanced optimization completed!")
                         if st.session_state.induction_list:
-                            st.session_state.chatbot.set_induction_list(st.session_state.induction_list)
+                            pass
                 
                 # Display results if available
                 if st.session_state.induction_list:
@@ -637,65 +634,7 @@ def main():
                 except Exception as e:
                     st.error(f"Error loading model: {str(e)}")
     
-    with tab5:
-        st.markdown("### 💬 AI Chat Assistant")
-
-        # Function to clear chat history
-        def clear_chat_history():
-            # This will trigger a rerun of the app
-            st.session_state.chat_history = []
-            if st.session_state.get('chatbot'):
-                st.session_state.chatbot.chat_session = None
-                st.session_state.chatbot.set_induction_list(st.session_state.induction_list)
-
-        # Place the "Clear Chat" button at the top-right
-        # Use columns to position it nicely
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col3:
-            if st.button("Clear Chat", key="clear_chat_button"):
-                clear_chat_history()
-                st.rerun()
-
-        # Initial check before showing the chat
-        if not st.session_state.get('chatbot') or not st.session_state.get('induction_list'):
-            st.warning("⚠️ Please run the optimization first to start a conversation with the assistant.")
-            st.info("The assistant needs the induction plan to provide useful answers.")
-
-        else:
-            # Initialize chat history with a welcome message if it's empty
-            if 'chat_history' not in st.session_state:
-                st.session_state.chat_history = [
-                    ("assistant", "Hello! I'm ready to help. What would you like to know about the induction plan?")
-                ]
-
-            # Display chat messages from history on app rerun
-            for sender, msg in st.session_state.chat_history:
-                with st.chat_message(sender):
-                    st.markdown(msg)
-
-            # Accept user input
-            if user_prompt := st.chat_input("Ask a question about the induction plan..."):
-                # Add user message to chat history
-                st.session_state.chat_history.append(("user", user_prompt))
-
-                # Display user message
-                with st.chat_message("user"):
-                    st.markdown(user_prompt)
-
-                # Get and display assistant response
-                try:
-                    with st.chat_message("assistant"):
-                        with st.spinner("Thinking..."):
-                            response = st.session_state.chatbot.chat(user_prompt)
-                            st.markdown(response)
-                            # Append the response to chat history
-                            # Note: The `chat` method now updates the internal session, so we just need to append to our local history for display
-                            st.session_state.chat_history.append(("assistant", response))
-
-                except Exception as e:
-                    # Handle API errors gracefully
-                    st.error(f"An error occurred: {e}")
-                    st.info("Please try again or clear the chat history.")
+    # Chat assistant removed from the engine UI
 
 if __name__ == "__main__":
     main()

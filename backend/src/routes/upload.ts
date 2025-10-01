@@ -9,6 +9,9 @@ import { PythonOptimizationService } from '../services/pythonOptimizationService
 import { authenticate } from '../middleware/auth';
 import { AuthRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import fs from 'fs';
+import path from 'path';
+import { uploadBufferToFirebase, isFirebaseConfigured } from '../utils/firebase';
 
 const router = express.Router();
 
@@ -135,12 +138,31 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
     // Process data
     const processedData = processData(rawData);
 
+    // Attempt to upload original file to Firebase Storage
+    let storageInfo: { provider: 'firebase' | 'local' | 'none'; bucket?: string; path?: string; url?: string } = { provider: 'none' };
+    try {
+      const buffer = fs.readFileSync(filePath);
+      if (isFirebaseConfigured()) {
+        const dest = `uploads/${req.user!._id}/${Date.now()}-${path.basename(filePath)}`;
+        const uploaded = await uploadBufferToFirebase(buffer, dest, fileType === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        if (uploaded) {
+          storageInfo = { provider: 'firebase', bucket: uploaded.bucket, path: uploaded.path, url: uploaded.publicUrl };
+        }
+      }
+    } catch (e) {
+      logger.warn('Failed to upload to Firebase, proceeding without remote storage');
+    } finally {
+      // Cleanup local file regardless
+      try { fs.unlinkSync(filePath); } catch {}
+    }
+
     // Save to database
     const uploadedData = new UploadedData({
       userId: req.user!._id,
       fileName: req.file.originalname,
       fileType,
       fileSize: req.file.size,
+      storage: storageInfo,
       originalData: rawData,
       processedData,
       status: 'completed'
@@ -174,10 +196,30 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
         reason: result.explainability
       }));
 
-      // Save optimization results
+      // Save optimization results (store full per-train objects)
       const optimizationResult = new OptimizationResult({
         userId: req.user!._id,
-        results: optimizationResults.map(r => r.score),
+        results: optimizationResults.map(r => ({
+          trainId: r.trainId,
+          score: r.score,
+          factors: {
+            fitness: r.factors.fitness.status as any,
+            jobCard: r.factors.jobCard.status as any,
+            branding: r.factors.branding.status as any,
+            mileage: r.factors.mileage.status as any,
+            cleaning: r.factors.cleaning.status as any,
+            geometry: r.factors.geometry.status as any
+          },
+          reason: r.reason,
+          rawData: {
+            fitnessCertificate: processedData.find(p => p.trainId === r.trainId)?.fitnessCertificate || 0,
+            jobCardStatus: processedData.find(p => p.trainId === r.trainId)?.jobCardStatus || 0,
+            brandingPriority: processedData.find(p => p.trainId === r.trainId)?.brandingPriority || 0,
+            mileageBalancing: processedData.find(p => p.trainId === r.trainId)?.mileageBalancing || 0,
+            cleaningDetailing: processedData.find(p => p.trainId === r.trainId)?.cleaningDetailing || 0,
+            stablingGeometry: processedData.find(p => p.trainId === r.trainId)?.stablingGeometry || 0
+          }
+        })),
         totalTrains: optimizationResults.length,
         averageScore: Math.round(pythonResults.summary!.averageScore)
       });
@@ -216,11 +258,31 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
 
       const averageScore = optimizationResults.reduce((sum, result) => sum + result, 0) / optimizationResults.length;
 
-      // Save optimization results
+      // Save optimization results (basic)
       const optimizationResult = new OptimizationResult({
         userId: req.user!._id,
-        results: optimizationResults,
-        totalTrains: optimizationResults.length,
+        results: processedData.map(p => ({
+          trainId: p.trainId,
+          score: Math.round(optimizationResults.find((_, idx) => processedData[idx].trainId === p.trainId) || 0) as any,
+          factors: {
+            fitness: (p.fitnessCertificate >= 90 ? 'great' : p.fitnessCertificate >= 75 ? 'good' : p.fitnessCertificate >= 60 ? 'ok' : 'bad') as any,
+            jobCard: (p.jobCardStatus >= 90 ? 'great' : p.jobCardStatus >= 75 ? 'good' : p.jobCardStatus >= 60 ? 'ok' : 'bad') as any,
+            branding: (p.brandingPriority >= 90 ? 'great' : p.brandingPriority >= 75 ? 'good' : p.brandingPriority >= 60 ? 'ok' : 'bad') as any,
+            mileage: (p.mileageBalancing >= 90 ? 'great' : p.mileageBalancing >= 75 ? 'good' : p.mileageBalancing >= 60 ? 'ok' : 'bad') as any,
+            cleaning: (p.cleaningDetailing >= 90 ? 'great' : p.cleaningDetailing >= 75 ? 'good' : p.cleaningDetailing >= 60 ? 'ok' : 'bad') as any,
+            geometry: (p.stablingGeometry >= 90 ? 'great' : p.stablingGeometry >= 75 ? 'good' : p.stablingGeometry >= 60 ? 'ok' : 'bad') as any
+          },
+          reason: 'Baseline optimization from weighted factors',
+          rawData: {
+            fitnessCertificate: p.fitnessCertificate,
+            jobCardStatus: p.jobCardStatus,
+            brandingPriority: p.brandingPriority,
+            mileageBalancing: p.mileageBalancing,
+            cleaningDetailing: p.cleaningDetailing,
+            stablingGeometry: p.stablingGeometry
+          }
+        })),
+        totalTrains: processedData.length,
         averageScore: Math.round(averageScore)
       });
 

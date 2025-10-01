@@ -88,6 +88,9 @@ export default function DigitalTwinPage() {
   const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null)
   const [isAnimating, setIsAnimating] = useState(false)
   const [animationSpeed, setAnimationSpeed] = useState(1)
+  const [desiredService, setDesiredService] = useState<number>(0)
+  const [desiredStandby, setDesiredStandby] = useState<number>(0)
+  const [desiredMaintenance, setDesiredMaintenance] = useState<number>(0)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>()
 
@@ -145,6 +148,13 @@ export default function DigitalTwinPage() {
         }
       })
       setTrains(mapped)
+      // seed desired counts
+      const s = mapped.filter(t => t.zone === 'service').length
+      const st = mapped.filter(t => t.zone === 'standby').length
+      const m = mapped.filter(t => t.zone === 'ibl').length
+      setDesiredService(s)
+      setDesiredStandby(st)
+      setDesiredMaintenance(m)
     } catch {
       setTrains([])
     }
@@ -262,6 +272,52 @@ export default function DigitalTwinPage() {
     }
     
     animate()
+  }
+
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+
+  const applyCountsAndAnimate = () => {
+    const total = trains.length
+    const targetService = clamp(Math.floor(desiredService), 0, total)
+    const targetStandby = clamp(Math.floor(desiredStandby), 0, total - targetService)
+    const targetMaintenance = clamp(total - targetService - targetStandby, 0, total)
+
+    const sorted = [...trains].sort((a, b) => b.score - a.score)
+    const next: TrainPosition[] = []
+    let s = 0, st = 0, m = 0
+    for (const t of sorted) {
+      let targetZone: 'service' | 'standby' | 'ibl' = 'standby'
+      if (s < targetService) { targetZone = 'service'; s++ }
+      else if (st < targetStandby) { targetZone = 'standby'; st++ }
+      else if (m < targetMaintenance) { targetZone = 'ibl'; m++ }
+
+      const base = zones[targetZone]
+      const idx = next.length
+      const targetX = base.x + ((idx * 80) % Math.max(80, base.width - 80)) + 40
+      const targetY = base.y + (Math.floor(idx / 9) * 50 + 25)
+
+      next.push({
+        ...t,
+        targetX,
+        targetY,
+        targetZone,
+        status: 'moving',
+        movingSpeed: animationSpeed
+      })
+    }
+
+    setIsAnimating(true)
+    setTrains(next)
+    setTimeout(() => {
+      setIsAnimating(false)
+      setTrains(prev => prev.map(tr => ({
+        ...tr,
+        x: tr.targetX ?? tr.x,
+        y: tr.targetY ?? tr.y,
+        zone: (tr.targetZone as any) ?? tr.zone,
+        status: 'stationary'
+      })))
+    }, 1500 / Math.max(0.25, animationSpeed))
   }
 
   const getTrainColor = (zone: string, score: number) => {
@@ -404,7 +460,7 @@ export default function DigitalTwinPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         {/* Control Panel */}
         <div className="lg:col-span-1 space-y-6">
           <Card>
@@ -415,6 +471,24 @@ export default function DigitalTwinPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Desired counts */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label>Running</Label>
+                  <Input type="number" min={0} max={trains.length} value={desiredService} onChange={(e) => setDesiredService(Number(e.target.value))} />
+                </div>
+                <div>
+                  <Label>Standby</Label>
+                  <Input type="number" min={0} max={trains.length} value={desiredStandby} onChange={(e) => setDesiredStandby(Number(e.target.value))} />
+                </div>
+                <div>
+                  <Label>Maintenance</Label>
+                  <Input type="number" min={0} max={trains.length} value={desiredMaintenance} onChange={(e) => setDesiredMaintenance(Number(e.target.value))} />
+                </div>
+              </div>
+              <Button onClick={applyCountsAndAnimate} className="w-full">
+                Apply Counts
+              </Button>
               <div>
                 <Label htmlFor="scenario">Scenario</Label>
                 <Select value={selectedScenario} onValueChange={setSelectedScenario}>

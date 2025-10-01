@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
+import GATracker from "@/components/ga-tracker"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -86,6 +87,9 @@ export default function WhatIfPage() {
   const [scenario, setScenario] = useState<string>("")
   const [isAnimating, setIsAnimating] = useState(false)
   const [simulationResult, setSimulationResult] = useState<any>(null)
+  const [desiredRunning, setDesiredRunning] = useState<number>(0)
+  const [desiredStandby, setDesiredStandby] = useState<number>(0)
+  const [desiredMaintenance, setDesiredMaintenance] = useState<number>(0)
 
   useEffect(() => {
     try {
@@ -129,6 +133,48 @@ export default function WhatIfPage() {
     setIsAnimating(false)
   }
 
+  // Initialize desired counts from current distribution
+  useEffect(() => {
+    const runningCount = trains.filter(t => t.status === "running").length
+    const standbyCount = trains.filter(t => t.status === "standby").length
+    const maintenanceCount = trains.filter(t => t.status === "maintenance").length
+    setDesiredRunning(runningCount)
+    setDesiredStandby(standbyCount)
+    setDesiredMaintenance(maintenanceCount)
+  }, [])
+
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+
+  const applyDesiredCounts = () => {
+    const total = trains.length
+    const targetRunning = clamp(Math.floor(desiredRunning), 0, total)
+    const targetStandby = clamp(Math.floor(desiredStandby), 0, total - targetRunning)
+    const targetMaintenance = clamp(total - targetRunning - targetStandby, 0, total)
+
+    // Sort trains by score, prefer high score to running, mid to standby, low to maintenance
+    const sorted = [...trains].sort((a, b) => b.score - a.score)
+    const next: typeof trains = []
+    let r = 0, s = 0, m = 0
+    for (const t of sorted) {
+      if (r < targetRunning) {
+        next.push({ ...t, status: "running" })
+        r++
+      } else if (s < targetStandby) {
+        next.push({ ...t, status: "standby" })
+        s++
+      } else if (m < targetMaintenance) {
+        next.push({ ...t, status: "maintenance" })
+        m++
+      } else {
+        next.push({ ...t, status: "standby" })
+      }
+    }
+
+    setIsAnimating(true)
+    setTrains(next)
+    setTimeout(() => setIsAnimating(false), 1200)
+  }
+
   if (!hasUser) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -157,7 +203,8 @@ export default function WhatIfPage() {
 
   return (
     <Protected>
-      <section className="container mx-auto px-4 py-8">
+      <section className="container mx-auto px-4 py-8 overflow-x-hidden">
+        <GATracker page="what_if" />
         <div className="mb-6">
           <h1 className="text-2xl md:text-3xl font-semibold text-balance" style={{ color: "var(--kmrl-teal)" }}>
             What-If Analysis
@@ -167,7 +214,7 @@ export default function WhatIfPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           {/* Train Selection & Controls */}
           <Card className="lg:col-span-1">
             <CardHeader>
@@ -177,6 +224,42 @@ export default function WhatIfPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Count controls */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="mb-1 block">Running</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={trains.length}
+                    value={desiredRunning}
+                    onChange={(e) => setDesiredRunning(Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1 block">Standby</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={trains.length}
+                    value={desiredStandby}
+                    onChange={(e) => setDesiredStandby(Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1 block">Maintenance</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={trains.length}
+                    value={desiredMaintenance}
+                    onChange={(e) => setDesiredMaintenance(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+              <Button className="w-full" onClick={applyDesiredCounts}>
+                Apply Counts
+              </Button>
               <div>
                 <Label htmlFor="train-select">Select Train</Label>
                 <Select value={selectedTrain} onValueChange={setSelectedTrain}>
@@ -267,11 +350,11 @@ export default function WhatIfPage() {
               </div>
 
               {/* Train Cards with Animation */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 items-stretch w-full">
                 {trains.map(train => (
                   <div 
                     key={train.id}
-                    className={`p-3 rounded-lg border-2 transition-all duration-1000 ${
+                    className={`p-3 rounded-lg border-2 transition-all duration-1000 h-full ${
                       train.status === "running" ? "border-green-500 bg-green-50" :
                       train.status === "standby" ? "border-yellow-500 bg-yellow-50" :
                       "border-red-500 bg-red-50"

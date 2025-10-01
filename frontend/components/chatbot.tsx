@@ -1,189 +1,224 @@
-"use client"
-import { useEffect, useMemo, useRef, useState } from "react"
+'use client'
 
-type Message = { id: string; role: "user" | "assistant"; content: string }
+import { useState, useRef, useEffect } from 'react'
+import { Send, X, MessageCircle, Bot } from 'lucide-react'
+import Image from 'next/image'
 
-function getApiBase() {
-  if (typeof window === "undefined") return "";
-  return process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3001";
+interface Message {
+  id: string
+  text: string
+  isUser: boolean
+  timestamp: Date
 }
 
-export function FloatingChatbot() {
+export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false)
-  const [input, setInput] = useState("")
-  const [sending, setSending] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([{
-    id: "welcome",
-    role: "assistant",
-    content: "Hi! I’m the KMRL assistant. Ask me about fleet optimization, uploads, or insights."
-  }])
-  const listRef = useRef<HTMLDivElement | null>(null)
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      text: 'Hello! I\'m your KMRL Fleet Optimization assistant. How can I help you today?',
+      isUser: false,
+      timestamp: new Date()
+    }
+  ])
+  const [inputValue, setInputValue] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" })
-  }, [messages, isOpen])
+    scrollToBottom()
+  }, [messages])
 
-  const apiUrl = useMemo(() => `${getApiBase()}/api/chat/message`, [])
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [isOpen])
 
-  async function sendMessage() {
-    const text = input.trim()
-    if (!text) return
-    setInput("")
-    const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: text }
-    setMessages(prev => [...prev, userMsg])
-    setSending(true)
+  const sendMessage = async () => {
+    if (!inputValue.trim() || isLoading) return
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: inputValue.trim(),
+      isUser: true,
+      timestamp: new Date()
+    }
+
+    setMessages(prev => [...prev, userMessage])
+    setInputValue('')
+    setIsLoading(true)
+
     try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" }
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('token')
-        if (token && token.split('.').length === 3) headers['Authorization'] = `Bearer ${token}`
-      }
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ message: text })
+      console.log('Sending request to backend chat API...')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/chat/message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userMessage.text,
+          context: {
+            system: 'KMRL Fleet Optimization Assistant',
+            domain: 'metro rail operations, fleet management, optimization, maintenance, performance analytics'
+          }
+        })
       })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.message || "Failed")
-      const botMsg: Message = { id: crypto.randomUUID(), role: "assistant", content: data.reply }
-      setMessages(prev => [...prev, botMsg])
-    } catch (err: any) {
-      const errMsg: Message = { id: crypto.randomUUID(), role: "assistant", content: `Error: ${err?.message || 'Something went wrong'}` }
-      setMessages(prev => [...prev, errMsg])
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Backend API Error:', response.status, response.statusText, errorData)
+        throw new Error(`API Error: ${response.status} - ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      const botResponse = data.reply || data.message || 'I apologize, but I couldn\'t generate a response. Please try again.'
+
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: botResponse,
+        isUser: false,
+        timestamp: new Date()
+      }
+
+      setMessages(prev => [...prev, botMessage])
+    } catch (error) {
+      console.error('Error sending message:', error)
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: 'I\'m sorry, I encountered an error. Please try again later.',
+        isUser: false,
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, errorMessage])
     } finally {
-      setSending(false)
+      setIsLoading(false)
     }
   }
 
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      if (!sending) sendMessage()
+      sendMessage()
     }
   }
 
   return (
-    <>
-      <button
-        aria-label={isOpen ? "Close chat" : "Open chat"}
-        onClick={() => setIsOpen(v => !v)}
-        style={{
-          position: "fixed",
-          right: "20px",
-          bottom: "20px",
-          width: "56px",
-          height: "56px",
-          borderRadius: "9999px",
-          background: "transparent",
-          color: "var(--primary-foreground)",
-          boxShadow: "0 10px 24px -12px rgba(0,0,0,0.35)",
-          zIndex: 50,
-          padding: 0,
-          border: "none",
-        }}
-      >
-        {isOpen ? (
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '56px',
-            height: '56px',
-            borderRadius: '9999px',
-            background: 'var(--primary)',
-            color: 'var(--primary-foreground)',
-            fontSize: 18,
-            lineHeight: 1
-          }}>✕</span>
-        ) : (
-          <img
-            src="/chatbot.jpg"
-            alt="Chatbot"
-            style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '9999px',
-              border: '2px solid black',
-              objectFit: 'cover',
-              display: 'block'
-            }}
-          />
-        )}
-      </button>
-
+    <div className="fixed bottom-6 right-6 z-50">
+      {/* Chat Window */}
       {isOpen && (
-        <div
-          style={{
-            position: "fixed",
-            right: "20px",
-            bottom: "84px",
-            width: "360px",
-            maxWidth: "90vw",
-            height: "520px",
-            maxHeight: "70vh",
-            background: "var(--card)",
-            color: "var(--card-foreground)",
-            border: "1px solid var(--border)",
-            borderRadius: "12px",
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-            zIndex: 50,
-          }}
-        >
-          <div style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ fontWeight: 600 }}>KMRL Assistant</div>
-            <div style={{ fontSize: 12, opacity: 0.75 }}>{sending ? "Thinking…" : "Online"}</div>
+        <div className="mb-4 w-80 h-[75vh] bg-card rounded-2xl shadow-2xl border border-border flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-primary to-primary text-primary-foreground p-4 flex items-center justify-between rounded-t-2xl">
+            <div className="flex items-center space-x-3">
+              <div className="relative w-8 h-8 rounded-full overflow-hidden bg-primary-foreground/20 flex items-center justify-center">
+                <Image
+                  src="/chatbot.jpg"
+                  alt="ChatBot"
+                  fill
+                  className="object-cover"
+                  sizes="32px"
+                />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm">KMRL Assistant</h3>
+                <p className="text-xs text-primary-foreground/80">Online</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+            >
+              <X size={20} />
+            </button>
           </div>
 
-          <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: "10px 12px", gap: 8, display: "flex", flexDirection: "column" }}>
-            {messages.map(m => (
-              <div key={m.id} style={{
-                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                background: m.role === 'user' ? 'var(--primary)' : 'var(--secondary)',
-                color: m.role === 'user' ? 'var(--primary-foreground)' : 'var(--secondary-foreground)',
-                borderRadius: 10,
-                padding: '8px 10px',
-                maxWidth: '85%'
-              }}>
-                {m.content}
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                    message.isUser
+                      ? 'bg-primary text-primary-foreground rounded-br-md'
+                      : 'bg-muted text-muted-foreground rounded-bl-md'
+                  }`}
+                >
+                  <p className="text-sm leading-relaxed">{message.text}</p>
+                  <p className={`text-xs mt-1 ${
+                    message.isUser ? 'text-primary-foreground/80' : 'text-muted-foreground/70'
+                  }`}>
+                    {message.timestamp.toLocaleTimeString([], { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </p>
+                </div>
               </div>
             ))}
+            
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-muted text-muted-foreground rounded-2xl rounded-bl-md px-4 py-2">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div ref={messagesEndRef} />
           </div>
 
-          <div style={{ borderTop: "1px solid var(--border)", padding: 8, display: "flex", gap: 8 }}>
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder="Ask something…"
-              style={{
-                flex: 1,
-                border: "1px solid var(--input)",
-                borderRadius: 8,
-                padding: "8px 10px",
-                outline: "none",
-                background: "var(--popover)",
-                color: "var(--popover-foreground)",
-              }}
-            />
-            <button
-              onClick={() => !sending && sendMessage()}
-              disabled={sending}
-              style={{
-                borderRadius: 8,
-                padding: "8px 12px",
-                background: sending ? "var(--muted)" : "var(--primary)",
-                color: sending ? "var(--muted-foreground)" : "var(--primary-foreground)",
-              }}
-            >
-              Send
-            </button>
+          {/* Input */}
+          <div className="p-4 border-t border-border">
+            <div className="flex space-x-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Type your message..."
+                className="flex-1 px-3 py-2 border border-input bg-background text-foreground rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm placeholder:text-muted-foreground"
+                disabled={isLoading}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!inputValue.trim() || isLoading}
+                className="bg-primary text-primary-foreground p-2 rounded-full hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed transition-colors"
+              >
+                <Send size={16} />
+              </button>
+            </div>
           </div>
         </div>
       )}
-    </>
+
+      {/* Chat Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="bg-gradient-to-r from-primary to-primary text-primary-foreground p-4 rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-200 flex items-center justify-center group"
+      >
+        {isOpen ? (
+          <X size={24} className="transition-transform group-hover:rotate-90" />
+        ) : (
+            <div className="relative">
+              <MessageCircle size={24} />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full animate-pulse"></div>
+            </div>
+        )}
+      </button>
+    </div>
   )
 }
-
-

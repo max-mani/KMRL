@@ -6,8 +6,8 @@ import { GeistMono } from "geist/font/mono"
 import "./globals.css"
 import { NavBar } from "@/components/nav-bar"
 import { Footer } from "@/components/footer"
+import ChatBot from "@/components/chatbot"
 import { Suspense } from "react"
-import { FloatingChatbot } from "@/components/chatbot"
 
 export const metadata: Metadata = {
   title: "KMRL Fleet Optimization",
@@ -35,7 +35,14 @@ export default function RootLayout({
             <Footer />
           </Suspense>
         </div>
-        <FloatingChatbot />
+        <ChatBot />
+        <div suppressHydrationWarning>
+          {typeof window !== 'undefined' ? (
+            <div style={{ position: 'fixed', bottom: 12, right: 12, fontSize: 12, background: 'rgba(0,0,0,0.55)', color: '#fff', padding: '4px 8px', borderRadius: 6, zIndex: 9999 }}>
+              Analytics: enabled
+            </div>
+          ) : null}
+        </div>
         {/* <Analytics /> */}
       </body>
     </html>

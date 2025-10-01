@@ -5,6 +5,12 @@ export interface IUploadedData extends Document {
   fileName: string;
   fileType: 'csv' | 'excel' | 'google-sheet';
   fileSize: number;
+  storage: {
+    provider: 'firebase' | 'local' | 'none';
+    bucket?: string;
+    path?: string;
+    url?: string;
+  };
   originalData: any[];
   processedData: ProcessedTrainData[];
   uploadDate: Date;
@@ -51,6 +57,12 @@ const UploadedDataSchema = new Schema<IUploadedData>({
   fileSize: {
     type: Number,
     required: true
+  },
+  storage: {
+    provider: { type: String, enum: ['firebase', 'local', 'none'], default: 'none' },
+    bucket: { type: String },
+    path: { type: String },
+    url: { type: String }
   },
   originalData: {
     type: [Schema.Types.Mixed],
