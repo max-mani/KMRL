@@ -55,6 +55,7 @@ export default function MaintenancePage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
 
   useEffect(() => {
     try {
@@ -67,7 +68,9 @@ export default function MaintenancePage() {
     // Build maintenance view from uploaded results
     try {
       const raw = localStorage.getItem('kmrl-optimization-results')
+      const rawNarr = localStorage.getItem('kmrl-optimization-narratives')
       const results: any[] = raw ? JSON.parse(raw) : []
+      const narratives: Record<string, string> = rawNarr ? JSON.parse(rawNarr) : {}
       const maint = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance')
       const mapped: MaintenanceItem[] = maint.map((r: any, idx: number) => ({
         id: String(idx + 1),
@@ -78,7 +81,7 @@ export default function MaintenancePage() {
         priority: 'high',
         dueDate: new Date().toISOString(),
         estimatedDuration: 240,
-        description: r.reason || 'Scheduled corrective maintenance based on optimization results',
+        description: narratives[(r.trainId || r.id || `T${idx + 1}`)] || r.reason || 'Scheduled corrective maintenance based on optimization results',
         assignedTo: 'Maintenance Team',
         progress: 0
       }))
@@ -90,7 +93,7 @@ export default function MaintenancePage() {
           id: String(i + 1),
           trainId: m.trainId,
           type: 'critical',
-          message: 'Maintenance required based on optimization results',
+          message: m.description,
           timestamp: new Date().toISOString(),
           resolved: false
         }))
@@ -100,6 +103,75 @@ export default function MaintenancePage() {
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  // If narratives are missing, try fetching them quickly using existing results
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = localStorage.getItem('kmrl-optimization-results')
+        const rawNarr = localStorage.getItem('kmrl-optimization-narratives')
+        const results: any[] = raw ? JSON.parse(raw) : []
+        const existingNarr: Record<string, string> = rawNarr ? JSON.parse(rawNarr) : {}
+        const needs = results.filter(r => !existingNarr[r.trainId])
+        if (results.length && needs.length) {
+          const resp = await fetch(`${apiBase}/api/optimization/narrative/trains`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+            },
+            body: JSON.stringify({ trains: results.map((r: any) => ({
+              trainId: r.trainId,
+              score: r.score,
+              inductionStatus: r.inductionStatus,
+              factors: {
+                fitness: r.factors?.fitness?.score ?? 0,
+                jobCard: r.factors?.jobCard?.score ?? 0,
+                branding: r.factors?.branding?.score ?? 0,
+                mileage: r.factors?.mileage?.score ?? 0,
+                cleaning: r.factors?.cleaning?.score ?? 0,
+                geometry: r.factors?.geometry?.score ?? 0,
+              }
+            })) })
+          })
+          if (resp.ok) {
+            const data = await resp.json()
+            const map: Record<string, string> = { ...existingNarr }
+            ;(data.narratives || []).forEach((n: any) => { map[n.trainId] = n.narrative })
+            localStorage.setItem('kmrl-optimization-narratives', JSON.stringify(map))
+            // Rebuild maintenanceData with fresh narratives
+            const maint = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance')
+            const mapped: MaintenanceItem[] = maint.map((r: any, idx: number) => ({
+              id: String(idx + 1),
+              trainId: r.trainId || r.id || `T${idx + 1}`,
+              trainName: r.trainId || `Train ${idx + 1}`,
+              type: 'repair',
+              status: 'in-progress',
+              priority: 'high',
+              dueDate: new Date().toISOString(),
+              estimatedDuration: 240,
+              description: map[(r.trainId || r.id || `T${idx + 1}`)] || r.reason || 'Scheduled corrective maintenance based on optimization results',
+              assignedTo: 'Maintenance Team',
+              progress: 0
+            }))
+            setMaintenanceData({
+              routine: [],
+              inspection: [],
+              repair: mapped,
+              alerts: mapped.slice(0, 3).map((m, i) => ({
+                id: String(i + 1),
+                trainId: m.trainId,
+                type: 'critical',
+                message: m.description,
+                timestamp: new Date().toISOString(),
+                resolved: false
+              }))
+            })
+          }
+        }
+      } catch {}
+    })()
   }, [])
 
   const filteredData = useMemo(() => {

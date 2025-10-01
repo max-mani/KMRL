@@ -105,13 +105,56 @@ export default function DashboardPage() {
   const [selectedTrain, setSelectedTrain] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
   const [results, setResults] = useState<Result[]>([])
+  const [narratives, setNarratives] = useState<Record<string, string>>({})
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem('kmrl-optimization-results')
       if (raw) setResults(JSON.parse(raw))
+      const rawNarr = localStorage.getItem('kmrl-optimization-narratives')
+      if (rawNarr) setNarratives(JSON.parse(rawNarr))
     } catch {}
   }, [])
+
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!results.length) return
+        const missing = results.filter(r => !narratives[r.trainId])
+        if (!missing.length) return
+        const resp = await fetch(`${apiBase}/api/optimization/narrative/trains`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+          },
+          body: JSON.stringify({ trains: results.map((r: any) => ({
+            trainId: r.trainId,
+            score: r.score,
+            inductionStatus: r.inductionStatus,
+            factors: {
+              fitness: r.factors?.fitness?.score ?? 0,
+              jobCard: r.factors?.jobCard?.score ?? 0,
+              branding: r.factors?.branding?.score ?? 0,
+              mileage: r.factors?.mileage?.score ?? 0,
+              cleaning: r.factors?.cleaning?.score ?? 0,
+              geometry: r.factors?.geometry?.score ?? 0,
+            },
+            ...(typeof (r as any).stablingBay !== 'undefined' ? { stablingBay: (r as any).stablingBay } : {}),
+            ...(typeof (r as any).cleaningSlot !== 'undefined' ? { cleaningSlot: (r as any).cleaningSlot } : {}),
+          })) })
+        })
+        if (resp.ok) {
+          const data = await resp.json()
+          const map: Record<string, string> = { ...narratives }
+          ;(data.narratives || []).forEach((n: any) => { map[n.trainId] = n.narrative })
+          setNarratives(map)
+          try { localStorage.setItem('kmrl-optimization-narratives', JSON.stringify(map)) } catch {}
+        }
+      } catch {}
+    })()
+  }, [results])
   const getScoreTextClass = (value: number) => {
     if (value >= 80) return 'text-green-600'
     if (value >= 45) return 'text-yellow-600'
@@ -267,7 +310,9 @@ export default function DashboardPage() {
                       <Badge variant="outline">#{index + 1}</Badge>
                       <div>
                         <p className="font-semibold">{train.trainId}</p>
-                        <p className="text-sm text-muted-foreground">{train.reason}</p>
+                        {narratives[train.trainId] && (
+                          <p className="text-sm text-muted-foreground">{narratives[train.trainId]}</p>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">

@@ -62,6 +62,7 @@ export default function InsightsPage() {
     pendingCount: 0
   })
   const [loading, setLoading] = useState(true)
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
 
   useEffect(() => {
     try {
@@ -76,12 +77,12 @@ export default function InsightsPage() {
         // derive simple insights from uploaded results
         const raw = localStorage.getItem('kmrl-optimization-results')
         const results: any[] = raw ? JSON.parse(raw) : []
-        const derived: CriticalInsight[] = results.slice(0, 8).map((r, idx) => ({
+        let derived: CriticalInsight[] = results.slice(0, 8).map((r, idx) => ({
           id: String(idx + 1),
           type: r.score < 60 ? 'critical' : r.score < 75 ? 'warning' : 'recommendation',
           category: 'efficiency',
           title: `${r.trainId || 'Train'} optimization insight`,
-          description: r.reason || 'Generated from optimization results',
+          description: r.reason || 'Narrative explanation generated using Gemini',
           impact: r.score < 60 ? 'high' : r.score < 75 ? 'medium' : 'low',
           urgency: r.score < 60 ? 'immediate' : r.score < 75 ? 'within-24h' : 'within-week',
           affectedTrains: [r.trainId || `T${idx + 1}`],
@@ -93,6 +94,43 @@ export default function InsightsPage() {
           timestamp: new Date().toISOString(),
           resolved: false
         }))
+
+        // Fetch better narratives from backend for these trains
+        if (derived.length > 0) {
+          try {
+            const resp = await fetch(`${apiBase}/api/optimization/narrative/trains`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+              },
+              body: JSON.stringify({ trains: results.slice(0, 8).map((r: any) => ({
+                trainId: r.trainId,
+                score: r.score,
+                inductionStatus: r.inductionStatus,
+                factors: {
+                  fitness: r.factors?.fitness?.score ?? 0,
+                  jobCard: r.factors?.jobCard?.score ?? 0,
+                  branding: r.factors?.branding?.score ?? 0,
+                  mileage: r.factors?.mileage?.score ?? 0,
+                  cleaning: r.factors?.cleaning?.score ?? 0,
+                  geometry: r.factors?.geometry?.score ?? 0,
+                },
+                ...(typeof r.stablingBay !== 'undefined' ? { stablingBay: r.stablingBay } : {}),
+                ...(typeof r.cleaningSlot !== 'undefined' ? { cleaningSlot: r.cleaningSlot } : {}),
+              })) })
+            })
+            if (resp.ok) {
+              const data = await resp.json()
+              const byTrain: Record<string, string> = {}
+              ;(data.narratives || []).forEach((n: any) => { if (n.trainId && n.narrative) byTrain[n.trainId] = n.narrative })
+              derived = derived.map((d) => ({
+                ...d,
+                description: byTrain[d.affectedTrains[0]] || d.description
+              }))
+            }
+          } catch {}
+        }
 
         setInsights(derived)
         const newMetrics: InsightMetrics = {

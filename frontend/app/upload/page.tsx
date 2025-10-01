@@ -64,8 +64,10 @@ export default function UploadPage() {
   const [gSheetUrl, setGSheetUrl] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
   const [optimizationResults, setOptimizationResults] = useState<any[]>([])
+  const [narratives, setNarratives] = useState<Record<string, string>>({})
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle')
   const [activeTab, setActiveTab] = useState<'upload' | 'results'>('upload')
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
 
   function onCSV(file: File) {
     setUploadStatus('processing')
@@ -77,7 +79,7 @@ export default function UploadPage() {
         setRows(data)
         setHeaders(Object.keys(data[0] || {}))
         setUploadStatus('completed')
-        processOptimization(data)
+        uploadFile(file)
       },
       error: () => {
         setUploadStatus('error')
@@ -95,7 +97,7 @@ export default function UploadPage() {
       setRows(json)
       setHeaders(Object.keys(json[0] || {}))
       setUploadStatus('completed')
-      processOptimization(json)
+      uploadFile(file)
     } catch (error) {
       setUploadStatus('error')
     }
@@ -104,26 +106,140 @@ export default function UploadPage() {
   async function fetchGSheet() {
     setUploadStatus('processing')
     try {
-      const res = await fetch(gSheetUrl)
-      const text = await res.text()
-      // try parse CSV-like export
-      Papa.parse(text, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (r: any) => {
-          const data = r.data as Row[]
-          setRows(data)
-          setHeaders(Object.keys(data[0] || {}))
-          setUploadStatus('completed')
-          processOptimization(data)
+      const resp = await fetch(`${apiBase}/api/upload/google-sheet`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
         },
-        error: () => {
-          setUploadStatus('error')
-        }
+        body: JSON.stringify({ url: gSheetUrl })
       })
+      if (!resp.ok) {
+        throw new Error('Failed to import Google Sheet')
+      }
+      const result = await resp.json()
+      // Best-effort: reflect rows/headers from backend originalData if present
+      const original = result?.data?.summary?.originalData || result?.data?.originalData || []
+      if (Array.isArray(original) && original.length) {
+        setRows(original)
+        setHeaders(Object.keys(original[0] || {}))
+      }
+      if (result.success && result.data?.optimizationResults) {
+        const optResults = result.data.optimizationResults
+        setOptimizationResults(optResults)
+        try {
+          localStorage.setItem('kmrl-optimization-results', JSON.stringify(optResults))
+        } catch {}
+        // Fetch narratives
+        try {
+          const narr = await fetch(`${apiBase}/api/optimization/narrative/trains`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+            },
+            body: JSON.stringify({ trains: optResults.map((r: any) => ({
+              trainId: r.trainId,
+              score: r.score,
+              inductionStatus: r.inductionStatus,
+              factors: {
+                fitness: r.factors?.fitness?.score ?? 0,
+                jobCard: r.factors?.jobCard?.score ?? 0,
+                branding: r.factors?.branding?.score ?? 0,
+                mileage: r.factors?.mileage?.score ?? 0,
+                cleaning: r.factors?.cleaning?.score ?? 0,
+                geometry: r.factors?.geometry?.score ?? 0,
+              },
+              ...(typeof r.stablingBay !== 'undefined' ? { stablingBay: r.stablingBay } : {}),
+              ...(typeof r.cleaningSlot !== 'undefined' ? { cleaningSlot: r.cleaningSlot } : {}),
+            })) })
+          })
+          if (narr.ok) {
+            const data = await narr.json()
+            const map: Record<string, string> = {}
+            ;(data.narratives || []).forEach((n: any) => { map[n.trainId] = n.narrative })
+            setNarratives(map)
+            try { localStorage.setItem('kmrl-optimization-narratives', JSON.stringify(map)) } catch {}
+          }
+        } catch {}
+      } else {
+        throw new Error(result.message || 'Optimization failed')
+      }
+      setUploadStatus('completed')
+      setActiveTab('results')
     } catch (e) {
       console.error(e)
       setUploadStatus('error')
+    }
+  }
+
+  async function uploadFile(file: File) {
+    setIsProcessing(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+
+      const response = await fetch(`${apiBase}/api/upload/data`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+        },
+        body: form
+      })
+
+      if (!response.ok) {
+        // Try to read error for required columns
+        let errMsg = 'Failed to process optimization'
+        try { const e = await response.json(); if (e?.message) errMsg = `${errMsg}: ${e.message}${e.missingColumns ? ` (${e.missingColumns.join(', ')})` : ''}` } catch {}
+        throw new Error(errMsg)
+      }
+
+      const result = await response.json()
+      if (result.success && result.data?.optimizationResults) {
+        const optResults = result.data.optimizationResults
+        setOptimizationResults(optResults)
+        try { localStorage.setItem('kmrl-optimization-results', JSON.stringify(optResults)) } catch {}
+        // Fetch narratives
+        try {
+          const resp = await fetch(`${apiBase}/api/optimization/narrative/trains`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+            },
+            body: JSON.stringify({ trains: optResults.map((r: any) => ({
+              trainId: r.trainId,
+              score: r.score,
+              inductionStatus: r.inductionStatus,
+              factors: {
+                fitness: r.factors?.fitness?.score ?? 0,
+                jobCard: r.factors?.jobCard?.score ?? 0,
+                branding: r.factors?.branding?.score ?? 0,
+                mileage: r.factors?.mileage?.score ?? 0,
+                cleaning: r.factors?.cleaning?.score ?? 0,
+                geometry: r.factors?.geometry?.score ?? 0,
+              },
+              ...(typeof r.stablingBay !== 'undefined' ? { stablingBay: r.stablingBay } : {}),
+              ...(typeof r.cleaningSlot !== 'undefined' ? { cleaningSlot: r.cleaningSlot } : {}),
+            })) })
+          })
+          if (resp.ok) {
+            const data = await resp.json()
+            const map: Record<string, string> = {}
+            ;(data.narratives || []).forEach((n: any) => { map[n.trainId] = n.narrative })
+            setNarratives(map)
+            try { localStorage.setItem('kmrl-optimization-narratives', JSON.stringify(map)) } catch {}
+          }
+        } catch {}
+        setActiveTab('results')
+      } else {
+        throw new Error(result.message || 'Optimization failed')
+      }
+    } catch (error) {
+      console.error('Optimization error:', error)
+      setOptimizationResults([])
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -143,7 +259,7 @@ export default function UploadPage() {
       }))
 
       // Send data to backend for Python optimization
-      const response = await fetch('/api/upload/data', {
+      const response = await fetch(`${apiBase}/api/upload/data`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -159,9 +275,45 @@ export default function UploadPage() {
       const result = await response.json()
       
       if (result.success && result.data.optimizationResults) {
-        setOptimizationResults(result.data.optimizationResults)
+        const optResults = result.data.optimizationResults
+        setOptimizationResults(optResults)
+        // Fetch narratives for these trains
         try {
-          localStorage.setItem('kmrl-optimization-results', JSON.stringify(result.data.optimizationResults))
+          const resp = await fetch(`${apiBase}/api/optimization/narrative/trains`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+            },
+            body: JSON.stringify({ trains: optResults.map((r: any) => ({
+              trainId: r.trainId,
+              score: r.score,
+              inductionStatus: r.inductionStatus,
+              factors: {
+                fitness: r.factors?.fitness?.score ?? 0,
+                jobCard: r.factors?.jobCard?.score ?? 0,
+                branding: r.factors?.branding?.score ?? 0,
+                mileage: r.factors?.mileage?.score ?? 0,
+                cleaning: r.factors?.cleaning?.score ?? 0,
+                geometry: r.factors?.geometry?.score ?? 0,
+              },
+              // optional metadata if present in API result
+              ...(typeof r.stablingBay !== 'undefined' ? { stablingBay: r.stablingBay } : {}),
+              ...(typeof r.cleaningSlot !== 'undefined' ? { cleaningSlot: r.cleaningSlot } : {}),
+            })) })
+          })
+          if (resp.ok) {
+            const data = await resp.json()
+            const map: Record<string, string> = {}
+            ;(data.narratives || []).forEach((n: any) => { map[n.trainId] = n.narrative })
+            setNarratives(map)
+            try {
+              localStorage.setItem('kmrl-optimization-narratives', JSON.stringify(map))
+            } catch {}
+          }
+        } catch {}
+        try {
+          localStorage.setItem('kmrl-optimization-results', JSON.stringify(optResults))
         } catch (e) {}
       } else {
         throw new Error(result.message || 'Optimization failed')
@@ -195,11 +347,46 @@ export default function UploadPage() {
             cleaning: { score: Math.round(cleaning), status: cleaning >= 90 ? 'great' : cleaning >= 75 ? 'good' : cleaning >= 60 ? 'ok' : 'bad' },
             geometry: { score: Math.round(geometry), status: geometry >= 90 ? 'great' : geometry >= 75 ? 'good' : geometry >= 60 ? 'ok' : 'bad' }
           },
-          reason: `Derived from upload: fitness (${Math.round(fitness)}%), job card (${Math.round(jobCard)}%), branding (${Math.round(branding)}%), mileage (${Math.round(mileage)}%), cleaning (${Math.round(cleaning)}%), geometry (${Math.round(geometry)}%)`
+          reason: ''
         }
       })
       
       setOptimizationResults(results.sort((a, b) => b.score - a.score))
+      // Try to fetch narratives for fallback results
+      try {
+        const resp = await fetch(`${apiBase}/api/optimization/narrative/trains`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+          },
+          body: JSON.stringify({ trains: results.map(r => ({
+            trainId: r.trainId,
+            score: r.score,
+            inductionStatus: r.inductionStatus,
+            factors: {
+              fitness: r.factors?.fitness?.score ?? 0,
+              jobCard: r.factors?.jobCard?.score ?? 0,
+              branding: r.factors?.branding?.score ?? 0,
+              mileage: r.factors?.mileage?.score ?? 0,
+              cleaning: r.factors?.cleaning?.score ?? 0,
+              geometry: r.factors?.geometry?.score ?? 0,
+            },
+            // optional metadata if present in derived result
+            ...(typeof (r as any).stablingBay !== 'undefined' ? { stablingBay: (r as any).stablingBay } : {}),
+            ...(typeof (r as any).cleaningSlot !== 'undefined' ? { cleaningSlot: (r as any).cleaningSlot } : {}),
+          })) })
+        })
+        if (resp.ok) {
+          const data = await resp.json()
+          const map: Record<string, string> = {}
+          ;(data.narratives || []).forEach((n: any) => { map[n.trainId] = n.narrative })
+          setNarratives(map)
+          try {
+            localStorage.setItem('kmrl-optimization-narratives', JSON.stringify(map))
+          } catch {}
+        }
+      } catch {}
       try {
         localStorage.setItem('kmrl-optimization-results', JSON.stringify(results))
       } catch (e) {}
@@ -507,6 +694,13 @@ export default function UploadPage() {
                                 <p className="text-xs text-muted-foreground">{data.score}</p>
                               </div>
                             ))}
+                          </div>
+
+                          {/* Narrative explanation */}
+                          <div className="mt-3 text-sm text-muted-foreground">
+                            {narratives[result.trainId] && (
+                              <p>{narratives[result.trainId]}</p>
+                            )}
                           </div>
                         </div>
                       )})}
