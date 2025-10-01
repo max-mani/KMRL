@@ -188,6 +188,7 @@ export class OptimizationEngine {
   }
 
   public static calculateOverallScore(factors: any, weights: OptimizationWeights): number {
+    const iotScore = typeof factors.iot === 'number' && !Number.isNaN(factors.iot) ? factors.iot : 50;
     const weightedScore = 
       factors.fitness * weights.fitness +
       factors.jobCard * weights.jobCard +
@@ -195,7 +196,7 @@ export class OptimizationEngine {
       factors.mileage * weights.mileage +
       factors.cleaning * weights.cleaning +
       factors.geometry * weights.geometry +
-      factors.iot * 0.1; // IoT weight
+      iotScore * 0.1; // IoT weight
 
     return Math.round(Math.max(0, Math.min(100, weightedScore)));
   }

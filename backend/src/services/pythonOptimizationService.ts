@@ -36,7 +36,7 @@ export interface PythonOptimizationResponse {
 
 export class PythonOptimizationService {
   private static readonly PYTHON_SCRIPT_PATH = path.join(__dirname, '../../engine/python_optimization_service.py');
-  private static readonly PYTHON_EXECUTABLE = process.env.PYTHON_PATH || 'python3';
+  private static readonly PYTHON_EXECUTABLE = process.env.PYTHON_PATH || (process.platform === 'win32' ? 'python' : 'python3');
 
   /**
    * Run optimization using the Python service

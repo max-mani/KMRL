@@ -235,7 +235,7 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
           uploadId: uploadedData._id,
           totalTrains: processedData.length,
           averageScore: Math.round(pythonResults.summary!.averageScore),
-          optimizationResults: optimizationResults.slice(0, 10), // Return first 10 results
+          optimizationResults: optimizationResults,
           summary: pythonResults.summary
         }
       });
@@ -244,7 +244,7 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
       logger.error('Python optimization failed, falling back to basic optimization:', pythonError);
       
       // Fallback to basic optimization
-      const optimizationResults = processedData.map(train => {
+      const scores = processedData.map(train => {
         const factors = {
           fitness: train.fitnessCertificate,
           jobCard: train.jobCardStatus,
@@ -256,21 +256,27 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
         return OptimizationEngine.calculateOverallScore(factors, OptimizationEngine['DEFAULT_WEIGHTS']);
       });
 
-      const averageScore = optimizationResults.reduce((sum, result) => sum + result, 0) / optimizationResults.length;
+      const averageScore = scores.length > 0 
+        ? scores.reduce((sum, result) => sum + result, 0) / scores.length
+        : 0;
 
-      // Save optimization results (basic)
-      const optimizationResult = new OptimizationResult({
-        userId: req.user!._id,
-        results: processedData.map(p => ({
+      const responseResults = processedData.map((p, idx) => {
+        const score = Math.round(scores[idx] || 0);
+        const toStatus = (v: number) => (v >= 85 ? 'great' : v >= 65 ? 'good' : v >= 45 ? 'ok' : 'bad');
+        const inductionStatus = score >= 70 ? 'revenue' : score >= 55 ? 'standby' : 'maintenance';
+        return {
           trainId: p.trainId,
-          score: Math.round(optimizationResults.find((_, idx) => processedData[idx].trainId === p.trainId) || 0) as any,
+          score,
+          inductionStatus,
+          cleaningSlot: 0,
+          stablingBay: 0,
           factors: {
-            fitness: (p.fitnessCertificate >= 90 ? 'great' : p.fitnessCertificate >= 75 ? 'good' : p.fitnessCertificate >= 60 ? 'ok' : 'bad') as any,
-            jobCard: (p.jobCardStatus >= 90 ? 'great' : p.jobCardStatus >= 75 ? 'good' : p.jobCardStatus >= 60 ? 'ok' : 'bad') as any,
-            branding: (p.brandingPriority >= 90 ? 'great' : p.brandingPriority >= 75 ? 'good' : p.brandingPriority >= 60 ? 'ok' : 'bad') as any,
-            mileage: (p.mileageBalancing >= 90 ? 'great' : p.mileageBalancing >= 75 ? 'good' : p.mileageBalancing >= 60 ? 'ok' : 'bad') as any,
-            cleaning: (p.cleaningDetailing >= 90 ? 'great' : p.cleaningDetailing >= 75 ? 'good' : p.cleaningDetailing >= 60 ? 'ok' : 'bad') as any,
-            geometry: (p.stablingGeometry >= 90 ? 'great' : p.stablingGeometry >= 75 ? 'good' : p.stablingGeometry >= 60 ? 'ok' : 'bad') as any
+            fitness: { score: Math.round(p.fitnessCertificate), status: toStatus(p.fitnessCertificate) },
+            jobCard: { score: Math.round(p.jobCardStatus), status: toStatus(p.jobCardStatus) },
+            branding: { score: Math.round(p.brandingPriority), status: toStatus(p.brandingPriority) },
+            mileage: { score: Math.round(p.mileageBalancing), status: toStatus(p.mileageBalancing) },
+            cleaning: { score: Math.round(p.cleaningDetailing), status: toStatus(p.cleaningDetailing) },
+            geometry: { score: Math.round(p.stablingGeometry), status: toStatus(p.stablingGeometry) }
           },
           reason: 'Baseline optimization from weighted factors',
           rawData: {
@@ -281,8 +287,29 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
             cleaningDetailing: p.cleaningDetailing,
             stablingGeometry: p.stablingGeometry
           }
-        })),
-        totalTrains: processedData.length,
+        };
+      });
+
+      const dbResults = responseResults.map(r => ({
+        trainId: r.trainId,
+        score: r.score,
+        factors: {
+          fitness: r.factors.fitness.status as any,
+          jobCard: r.factors.jobCard.status as any,
+          branding: r.factors.branding.status as any,
+          mileage: r.factors.mileage.status as any,
+          cleaning: r.factors.cleaning.status as any,
+          geometry: r.factors.geometry.status as any
+        },
+        reason: r.reason,
+        rawData: r.rawData
+      }));
+
+      // Save optimization results (basic)
+      const optimizationResult = new OptimizationResult({
+        userId: req.user!._id,
+        results: dbResults,
+        totalTrains: dbResults.length,
         averageScore: Math.round(averageScore)
       });
 
@@ -297,7 +324,7 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
           uploadId: uploadedData._id,
           totalTrains: processedData.length,
           averageScore: Math.round(averageScore),
-          optimizationResults: optimizationResults.slice(0, 10) // Return first 10 results
+          optimizationResults: responseResults
         }
       });
     }

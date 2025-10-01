@@ -436,23 +436,23 @@ export default function UploadPage() {
 
       // Priority: bad > ok > good > great
       if (hasBad) {
-        return { bg: 'bg-red-50', border: 'border-red-200', score: 'text-red-600' }
+        return { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800', score: 'text-red-600 dark:text-red-400' }
       }
       if (hasOk) {
-        return { bg: 'bg-yellow-50', border: 'border-yellow-200', score: 'text-yellow-600' }
+        return { bg: 'bg-yellow-50 dark:bg-yellow-900/20', border: 'border-yellow-200 dark:border-yellow-800', score: 'text-yellow-600 dark:text-yellow-400' }
       }
       if (hasGood) {
-        return { bg: 'bg-blue-50', border: 'border-blue-200', score: 'text-blue-600' }
+        return { bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-800', score: 'text-blue-600 dark:text-blue-400' }
       }
       if (hasGreat) {
-        return { bg: 'bg-green-50', border: 'border-green-200', score: 'text-green-600' }
+        return { bg: 'bg-green-50 dark:bg-green-900/20', border: 'border-green-200 dark:border-green-800', score: 'text-green-600 dark:text-green-400' }
       }
     } catch {}
     // Fallback based on score
     const s = Number(result.score) || 0
-    if (s >= 80) return { bg: 'bg-green-50', border: 'border-green-200', score: 'text-green-600' }
-    if (s >= 60) return { bg: 'bg-yellow-50', border: 'border-yellow-200', score: 'text-yellow-600' }
-    return { bg: 'bg-red-50', border: 'border-red-200', score: 'text-red-600' }
+    if (s >= 80) return { bg: 'bg-green-50 dark:bg-green-900/20', border: 'border-green-200 dark:border-green-800', score: 'text-green-600 dark:text-green-400' }
+    if (s >= 60) return { bg: 'bg-yellow-50 dark:bg-yellow-900/20', border: 'border-yellow-200 dark:border-yellow-800', score: 'text-yellow-600 dark:text-yellow-400' }
+    return { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800', score: 'text-red-600 dark:text-red-400' }
   }
 
   const factorLabelMap: Record<string, string> = {
@@ -467,15 +467,15 @@ export default function UploadPage() {
   function getStatusChipClasses(status: string) {
     switch ((status || '').toLowerCase()) {
       case 'great':
-        return 'bg-green-100 text-green-800 border border-green-200'
+        return 'bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800'
       case 'good':
-        return 'bg-blue-100 text-blue-800 border border-blue-200'
+        return 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
       case 'ok':
-        return 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+        return 'bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800'
       case 'bad':
-        return 'bg-red-100 text-red-800 border border-red-200'
+        return 'bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
       default:
-        return 'bg-muted text-foreground border'
+        return 'bg-muted text-foreground border dark:bg-muted/30'
     }
   }
 
