@@ -338,6 +338,264 @@ router.post('/data', authenticate, upload.single('file'), async (req: AuthReques
   }
 });
 
+// Helpers for multi-file category-wise ingestion
+type CategoryKey = 'fitnessCertificate' | 'jobCardStatus' | 'brandingPriority' | 'mileageBalancing' | 'cleaningDetailing' | 'stablingGeometry';
+
+const CATEGORY_KEYS: CategoryKey[] = [
+  'fitnessCertificate',
+  'jobCardStatus',
+  'brandingPriority',
+  'mileageBalancing',
+  'cleaningDetailing',
+  'stablingGeometry'
+];
+
+const categoryUpload = upload.fields(CATEGORY_KEYS.map(k => ({ name: k, maxCount: 20 })));
+
+const parseBufferToRows = (buffer: Buffer, originalName: string): any[] => {
+  const isCsv = originalName.toLowerCase().endsWith('.csv');
+  if (isCsv) {
+    const csvContent = buffer.toString('utf8');
+    const parsed = Papa.parse(csvContent, { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim() });
+    return Array.isArray(parsed.data) ? parsed.data as any[] : [];
+  }
+  const tmpFile = path.join(process.cwd(), 'uploads', `tmp-${Date.now()}-${Math.round(Math.random()*1e9)}.xlsx`);
+  try {
+    fs.writeFileSync(tmpFile, buffer);
+    const wb = XLSX.readFile(tmpFile);
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws);
+  } finally {
+    try { fs.unlinkSync(tmpFile); } catch {}
+  }
+};
+
+// POST /api/upload/data/multi - category-wise multi-file ingestion
+router.post('/data/multi', authenticate, categoryUpload, async (req: AuthRequest, res) => {
+  try {
+    const filesByCategory = (req as any).files as Record<string, Express.Multer.File[]> | undefined;
+    if (!filesByCategory || Object.values(filesByCategory).every(arr => !arr || arr.length === 0)) {
+      return res.status(400).json({ success: false, message: 'No files uploaded for any category' });
+    }
+
+    const trainMap: Record<string, ProcessedTrainData> = {};
+
+    for (const category of CATEGORY_KEYS) {
+      const files = (filesByCategory?.[category] || []) as Express.Multer.File[];
+      if (!files.length) continue;
+
+      // For each file, read buffer and parse rows
+      for (const f of files) {
+        const buffer = fs.readFileSync(f.path);
+        const rows = parseBufferToRows(buffer, f.originalname);
+        // Cleanup the temp disk file written by multer
+        try { fs.unlinkSync(f.path); } catch {}
+
+        for (const row of rows) {
+          const trainId = String(row.trainId || row.train_id || row.TRAINID || row.TrainID || '').trim();
+          if (!trainId) continue;
+          if (!trainMap[trainId]) {
+            trainMap[trainId] = {
+              trainId,
+              fitnessCertificate: 0,
+              jobCardStatus: 0,
+              brandingPriority: 0,
+              mileageBalancing: 0,
+              cleaningDetailing: 0,
+              stablingGeometry: 0
+            };
+          }
+
+          const valueRaw = row[category] ?? row[category.toUpperCase()] ?? row[category.replace(/([A-Z])/g, '_$1').toLowerCase()];
+          const value = Number(valueRaw);
+          if (!Number.isFinite(value)) continue;
+
+          // If value exists already, average with new one when multiple files provide same trainId/category
+          const current = trainMap[trainId][category];
+          trainMap[trainId][category] = current > 0 ? Math.round((current + value) / 2) : value;
+        }
+      }
+    }
+
+    const processedData: ProcessedTrainData[] = Object.values(trainMap).map(p => {
+      // Clamp values to 0..100
+      CATEGORY_KEYS.forEach((k) => {
+        const v = Number(p[k] as number);
+        if (!Number.isFinite(v)) p[k] = 0 as any;
+        if (v < 0) p[k] = 0 as any;
+        if (v > 100) p[k] = 100 as any;
+      });
+      return p;
+    });
+
+    if (processedData.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid rows found across uploaded files' });
+    }
+
+    // Persist an UploadedData record referencing multi-source upload
+    const totalSize = Object.values(filesByCategory).flat().reduce((acc, fArr) => acc + (Array.isArray(fArr) ? fArr.reduce((s, f) => s + (f.size || 0), 0) : 0), 0);
+    const uploadedData = new UploadedData({
+      userId: req.user!._id,
+      fileName: 'Category Multi-File Ingestion',
+      fileType: 'csv',
+      fileSize: totalSize,
+      storage: { provider: 'none' },
+      originalData: processedData, // store merged as original for traceability
+      processedData,
+      status: 'completed'
+    });
+
+    await uploadedData.save();
+
+    // Run Python optimization similar to single upload path
+    try {
+      const pythonResults = await PythonOptimizationService.runOptimization(processedData);
+      if (!pythonResults.success) {
+        throw new Error(pythonResults.error || 'Python optimization failed');
+      }
+
+      const optimizationResults = pythonResults.results!.map(result => ({
+        trainId: result.trainId,
+        score: result.overallScore,
+        factors: {
+          fitness: { score: result.fitnessScore, status: result.fitnessScore >= 70 ? 'great' : result.fitnessScore >= 55 ? 'good' : result.fitnessScore >= 40 ? 'ok' : 'bad' },
+          jobCard: { score: result.jobCardScore, status: result.jobCardScore >= 70 ? 'great' : result.jobCardScore >= 55 ? 'good' : result.jobCardScore >= 40 ? 'ok' : 'bad' },
+          branding: { score: result.brandingScore, status: result.brandingScore >= 70 ? 'great' : result.brandingScore >= 55 ? 'good' : result.brandingScore >= 40 ? 'ok' : 'bad' },
+          mileage: { score: result.mileageScore, status: result.mileageScore >= 70 ? 'great' : result.mileageScore >= 55 ? 'good' : result.mileageScore >= 40 ? 'ok' : 'bad' },
+          cleaning: { score: result.cleaningScore, status: result.cleaningScore >= 70 ? 'great' : result.cleaningScore >= 55 ? 'good' : result.cleaningScore >= 40 ? 'ok' : 'bad' },
+          geometry: { score: result.geometryScore, status: result.geometryScore >= 70 ? 'great' : result.geometryScore >= 55 ? 'good' : result.geometryScore >= 40 ? 'ok' : 'bad' }
+        },
+        inductionStatus: result.overallScore >= 65 ? 'running' : result.overallScore >= 50 ? 'standby' : 'maintenance',
+        cleaningSlot: result.cleaningSlot,
+        stablingBay: result.stablingBay,
+        reason: result.explainability
+      }));
+
+      const optimizationResult = new OptimizationResult({
+        userId: req.user!._id,
+        results: optimizationResults.map(r => ({
+          trainId: r.trainId,
+          score: r.score,
+          factors: {
+            fitness: r.factors.fitness.status as any,
+            jobCard: r.factors.jobCard.status as any,
+            branding: r.factors.branding.status as any,
+            mileage: r.factors.mileage.status as any,
+            cleaning: r.factors.cleaning.status as any,
+            geometry: r.factors.geometry.status as any
+          },
+          reason: r.reason,
+          rawData: {
+            fitnessCertificate: processedData.find(p => p.trainId === r.trainId)?.fitnessCertificate || 0,
+            jobCardStatus: processedData.find(p => p.trainId === r.trainId)?.jobCardStatus || 0,
+            brandingPriority: processedData.find(p => p.trainId === r.trainId)?.brandingPriority || 0,
+            mileageBalancing: processedData.find(p => p.trainId === r.trainId)?.mileageBalancing || 0,
+            cleaningDetailing: processedData.find(p => p.trainId === r.trainId)?.cleaningDetailing || 0,
+            stablingGeometry: processedData.find(p => p.trainId === r.trainId)?.stablingGeometry || 0
+          }
+        })),
+        totalTrains: optimizationResults.length,
+        averageScore: Math.round(pythonResults.summary!.averageScore)
+      });
+
+      await optimizationResult.save();
+
+      return res.json({
+        success: true,
+        message: 'Multi-file data uploaded and processed successfully with Python optimization',
+        data: {
+          uploadId: uploadedData._id,
+          totalTrains: processedData.length,
+          averageScore: Math.round(pythonResults.summary!.averageScore),
+          optimizationResults,
+          summary: pythonResults.summary
+        }
+      });
+    } catch (pythonError) {
+      logger.error('Python optimization failed for multi-file upload, using fallback:', pythonError);
+
+      const scores = processedData.map(train => {
+        const factors = {
+          fitness: train.fitnessCertificate,
+          jobCard: train.jobCardStatus,
+          branding: train.brandingPriority,
+          mileage: train.mileageBalancing,
+          cleaning: train.cleaningDetailing,
+          geometry: train.stablingGeometry
+        };
+        return OptimizationEngine.calculateOverallScore(factors, OptimizationEngine['DEFAULT_WEIGHTS']);
+      });
+
+      const responseResults = processedData.map((p, idx) => {
+        const score = Math.round(scores[idx] || 0);
+        const toStatus = (v: number) => (v >= 70 ? 'great' : v >= 55 ? 'good' : v >= 40 ? 'ok' : 'bad');
+        const inductionStatus = score >= 65 ? 'running' : score >= 40 ? 'standby' : 'maintenance';
+        return {
+          trainId: p.trainId,
+          score,
+          inductionStatus,
+          cleaningSlot: 0,
+          stablingBay: 0,
+          factors: {
+            fitness: { score: Math.round(p.fitnessCertificate), status: toStatus(p.fitnessCertificate) },
+            jobCard: { score: Math.round(p.jobCardStatus), status: toStatus(p.jobCardStatus) },
+            branding: { score: Math.round(p.brandingPriority), status: toStatus(p.brandingPriority) },
+            mileage: { score: Math.round(p.mileageBalancing), status: toStatus(p.mileageBalancing) },
+            cleaning: { score: Math.round(p.cleaningDetailing), status: toStatus(p.cleaningDetailing) },
+            geometry: { score: Math.round(p.stablingGeometry), status: toStatus(p.stablingGeometry) }
+          },
+          reason: 'Baseline optimization from weighted factors',
+          rawData: {
+            fitnessCertificate: p.fitnessCertificate,
+            jobCardStatus: p.jobCardStatus,
+            brandingPriority: p.brandingPriority,
+            mileageBalancing: p.mileageBalancing,
+            cleaningDetailing: p.cleaningDetailing,
+            stablingGeometry: p.stablingGeometry
+          }
+        };
+      });
+
+      const averageScore = responseResults.length > 0 ? Math.round(responseResults.reduce((s, r) => s + r.score, 0) / responseResults.length) : 0;
+
+      const optimizationResult = new OptimizationResult({
+        userId: req.user!._id,
+        results: responseResults.map(r => ({
+          trainId: r.trainId,
+          score: r.score,
+          factors: {
+            fitness: r.factors.fitness.status as any,
+            jobCard: r.factors.jobCard.status as any,
+            branding: r.factors.branding.status as any,
+            mileage: r.factors.mileage.status as any,
+            cleaning: r.factors.cleaning.status as any,
+            geometry: r.factors.geometry.status as any
+          },
+          reason: r.reason,
+          rawData: r.rawData
+        })),
+        totalTrains: responseResults.length,
+        averageScore
+      });
+      await optimizationResult.save();
+
+      return res.json({
+        success: true,
+        message: 'Multi-file data uploaded and processed successfully (fallback optimization)',
+        data: {
+          uploadId: uploadedData._id,
+          totalTrains: processedData.length,
+          averageScore,
+          optimizationResults: responseResults
+        }
+      });
+    }
+  } catch (error) {
+    logger.error('Multi-file upload error:', error);
+    return res.status(500).json({ success: false, message: 'Error processing multi-file upload' });
+  }
+});
+
 // POST /api/upload/google-sheet
 router.post('/google-sheet', authenticate, async (req: AuthRequest, res) => {
   try {

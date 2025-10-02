@@ -67,6 +67,14 @@ export default function UploadPage() {
   const [narratives, setNarratives] = useState<Record<string, string>>({})
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle')
   const [activeTab, setActiveTab] = useState<'upload' | 'results'>('upload')
+  const [categoryFiles, setCategoryFiles] = useState<Record<string, File[]>>({
+    fitnessCertificate: [],
+    jobCardStatus: [],
+    brandingPriority: [],
+    mileageBalancing: [],
+    cleaningDetailing: [],
+    stablingGeometry: []
+  })
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
 
   function onCSV(file: File) {
@@ -85,6 +93,79 @@ export default function UploadPage() {
         setUploadStatus('error')
       }
     })
+  }
+
+  async function uploadMultiCategory() {
+    setIsProcessing(true)
+    setUploadStatus('processing')
+    try {
+      const form = new FormData()
+      ;(Object.keys(categoryFiles) as (keyof typeof categoryFiles)[]).forEach((k) => {
+        (categoryFiles[k] || []).forEach((file) => {
+          form.append(k, file)
+        })
+      })
+
+      const response = await fetch(`${apiBase}/api/upload/data/multi`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+        },
+        body: form
+      })
+
+      if (!response.ok) {
+        let errMsg = 'Failed to process multi-file optimization'
+        try { const e = await response.json(); if (e?.message) errMsg = `${errMsg}: ${e.message}` } catch {}
+        throw new Error(errMsg)
+      }
+
+      const result = await response.json()
+      if (result.success && result.data?.optimizationResults) {
+        const optResults = result.data.optimizationResults
+        setOptimizationResults(optResults)
+        try { localStorage.setItem('kmrl-optimization-results', JSON.stringify(optResults)) } catch {}
+        setUploadStatus('completed')
+        setActiveTab('results')
+        // Fetch narratives
+        try {
+          const resp = await fetch(`${apiBase}/api/optimization/narrative/trains`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+            },
+            body: JSON.stringify({ trains: optResults.map((r: any) => ({
+              trainId: r.trainId,
+              score: r.score,
+              inductionStatus: r.inductionStatus,
+              factors: {
+                fitness: r.factors?.fitness?.score ?? 0,
+                jobCard: r.factors?.jobCard?.score ?? 0,
+                branding: r.factors?.branding?.score ?? 0,
+                mileage: r.factors?.mileage?.score ?? 0,
+                cleaning: r.factors?.cleaning?.score ?? 0,
+                geometry: r.factors?.geometry?.score ?? 0,
+              }
+            })) })
+          })
+          if (resp.ok) {
+            const data = await resp.json()
+            const map: Record<string, string> = {}
+            ;(data.narratives || []).forEach((n: any) => { map[n.trainId] = n.narrative })
+            setNarratives(map)
+            try { localStorage.setItem('kmrl-optimization-narratives', JSON.stringify(map)) } catch {}
+          }
+        } catch {}
+      } else {
+        throw new Error(result.message || 'Optimization failed')
+      }
+    } catch (e) {
+      console.error(e)
+      setUploadStatus('error')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   async function onXLSX(file: File) {
@@ -559,6 +640,45 @@ export default function UploadPage() {
                   </div>
                 </div>
                 
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Category-wise Multiple Files</label>
+                    <p className="text-xs text-muted-foreground">Upload multiple CSV/Excel files per category. Supported categories: Fitness Certificate, Job Card Status, Branding Priority, Mileage Balancing, Cleaning & Detailing, Stabling Geometry.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[
+                        { key: 'fitnessCertificate', label: 'Fitness Certificate' },
+                        { key: 'jobCardStatus', label: 'Job Card Status' },
+                        { key: 'brandingPriority', label: 'Branding Priority' },
+                        { key: 'mileageBalancing', label: 'Mileage Balancing' },
+                        { key: 'cleaningDetailing', label: 'Cleaning & Detailing' },
+                        { key: 'stablingGeometry', label: 'Stabling Geometry' },
+                      ].map(({ key, label }) => (
+                        <div key={key} className="space-y-1">
+                          <label className="text-sm">{label}</label>
+                          <Input
+                            type="file"
+                            accept=".csv,.xlsx,.xls"
+                            multiple
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || [])
+                              setCategoryFiles((prev) => ({ ...prev, [key]: files }))
+                            }}
+                            disabled={uploadStatus === 'processing'}
+                          />
+                          {categoryFiles[key]?.length ? (
+                            <span className="text-xs text-muted-foreground">{categoryFiles[key].length} file(s) selected</span>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-end">
+                      <Button onClick={uploadMultiCategory} disabled={isProcessing} className="bg-[var(--kmrl-teal)] text-white hover:opacity-90">
+                        Upload Multiple Files (Merge & Optimize)
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Google Sheet URL</label>
                   <div className="flex gap-2">

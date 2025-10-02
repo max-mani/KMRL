@@ -17,6 +17,7 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -24,7 +25,7 @@ export default function SignupPage() {
     setError("")
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/signup', {
+      const response = await fetch(`${apiBase}/api/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
