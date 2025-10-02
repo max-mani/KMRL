@@ -343,7 +343,7 @@ export default function MaintenancePage() {
       return <p className="text-muted-foreground text-center py-8">No maintenance tasks match your criteria.</p>
     }
     return (
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {items.map((item) => (
           <Card key={item.id} className="hover:shadow-lg transition-shadow duration-300 flex flex-col">
             <CardHeader>
@@ -400,7 +400,7 @@ export default function MaintenancePage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
@@ -443,8 +443,8 @@ export default function MaintenancePage() {
         </Card>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div className="grid gap-8 xl:grid-cols-4 xl:items-start">
+        <div className="xl:col-span-3 flex flex-col h-full">
           {/* Critical Alerts */}
       {maintenanceData.alerts.filter(alert => !alert.resolved).length > 0 && (
             <div className="mb-6">
@@ -454,12 +454,10 @@ export default function MaintenancePage() {
             <div className="space-y-3 w-full">
                 {maintenanceData.alerts.filter(alert => !alert.resolved).map((alert) => (
                 <Alert key={alert.id} variant={alert.type === 'critical' ? 'destructive' : 'default'} className="dark:bg-secondary w-full">
-                  <div className="flex flex-row items-center gap-3 w-full">
                       {getAlertIcon(alert.type)}
-                    <AlertDescription className="font-medium whitespace-normal w-full flex-1">
+                    <AlertDescription className="font-medium text-sm w-full">
                         <strong>{alert.trainId}:</strong> {alert.message}
                       </AlertDescription>
-                    </div>
                   </Alert>
                 ))}
               </div>
@@ -467,7 +465,7 @@ export default function MaintenancePage() {
           )}
 
           {/* Filters */}
-          <div className="flex flex-col md:flex-row gap-4 mb-6 p-4 bg-muted/50 dark:bg-muted/20 rounded-lg w-full">
+          <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 bg-muted/50 dark:bg-muted/20 rounded-lg w-full">
             <div className="relative flex-grow w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -477,10 +475,10 @@ export default function MaintenancePage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 sm:w-auto w-full">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -495,30 +493,30 @@ export default function MaintenancePage() {
           </div>
 
           {/* Maintenance Tabs */}
-          <Tabs defaultValue="all" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="all">All Tasks</TabsTrigger>
-              <TabsTrigger value="routine">Routine</TabsTrigger>
-              <TabsTrigger value="inspection">Inspection</TabsTrigger>
-              <TabsTrigger value="repair">Repair</TabsTrigger>
+          <Tabs defaultValue="all" className="w-full flex-1 flex flex-col">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+              <TabsTrigger value="all" className="text-xs sm:text-sm">All Tasks</TabsTrigger>
+              <TabsTrigger value="routine" className="text-xs sm:text-sm">Routine</TabsTrigger>
+              <TabsTrigger value="inspection" className="text-xs sm:text-sm">Inspection</TabsTrigger>
+              <TabsTrigger value="repair" className="text-xs sm:text-sm">Repair</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="all" className="mt-6">
+            <TabsContent value="all" className="mt-6 flex-1">
               {renderMaintenanceItems(filteredData)}
             </TabsContent>
-            <TabsContent value="routine" className="mt-6">
+            <TabsContent value="routine" className="mt-6 flex-1">
               {renderMaintenanceItems(filteredData.filter(item => item.type === 'routine'))}
             </TabsContent>
-            <TabsContent value="inspection" className="mt-6">
+            <TabsContent value="inspection" className="mt-6 flex-1">
               {renderMaintenanceItems(filteredData.filter(item => item.type === 'inspection'))}
             </TabsContent>
-            <TabsContent value="repair" className="mt-6">
+            <TabsContent value="repair" className="mt-6 flex-1">
               {renderMaintenanceItems(filteredData.filter(item => item.type === 'repair'))}
             </TabsContent>
           </Tabs>
         </div>
 
-        <div className="lg:col-span-1">
+        <div className="xl:col-span-1">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -528,32 +526,34 @@ export default function MaintenancePage() {
               <CardDescription>Overview of all maintenance tasks by status.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={statusDistribution}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    nameKey="name"
-                  >
-                    {statusDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--background))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)",
-                    }}
-                  />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusDistribution}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                      nameKey="name"
+                    >
+                      {statusDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        background: "hsl(var(--background))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "var(--radius)",
+                      }}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </CardContent>
           </Card>
         </div>
