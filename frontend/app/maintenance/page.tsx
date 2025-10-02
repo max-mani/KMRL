@@ -58,51 +58,116 @@ export default function MaintenancePage() {
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
 
   useEffect(() => {
-    try {
-      const user = localStorage.getItem('kmrl-user')
-      setHasUser(!!user)
-      const results = localStorage.getItem('kmrl-optimization-results')
-      setHasResults(!!results)
-    } catch {}
+    (async () => {
+      try {
+        const user = localStorage.getItem('kmrl-user')
+        setHasUser(!!user)
+      } catch {}
 
-    // Build maintenance view from uploaded results
-    try {
-      const raw = localStorage.getItem('kmrl-optimization-results')
-      const rawNarr = localStorage.getItem('kmrl-optimization-narratives')
-      const results: any[] = raw ? JSON.parse(raw) : []
-      const narratives: Record<string, string> = rawNarr ? JSON.parse(rawNarr) : {}
-      const maint = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance')
-      const mapped: MaintenanceItem[] = maint.map((r: any, idx: number) => ({
-        id: String(idx + 1),
-        trainId: r.trainId || r.id || `T${idx + 1}`,
-        trainName: r.trainId || `Train ${idx + 1}`,
-        type: 'repair',
-        status: 'in-progress',
-        priority: 'high',
-        dueDate: new Date().toISOString(),
-        estimatedDuration: 240,
-        description: narratives[(r.trainId || r.id || `T${idx + 1}`)] || r.reason || 'Scheduled corrective maintenance based on optimization results',
-        assignedTo: 'Maintenance Team',
-        progress: 0
-      }))
-      setMaintenanceData({
-        routine: [],
-        inspection: [],
-        repair: mapped,
-        alerts: mapped.slice(0, 3).map((m, i) => ({
-          id: String(i + 1),
-          trainId: m.trainId,
-          type: 'critical',
-          message: m.description,
-          timestamp: new Date().toISOString(),
-          resolved: false
+      try {
+        // Prefer localStorage; if empty, fetch today's results from backend
+        let raw = localStorage.getItem('kmrl-optimization-results')
+        if (!raw) {
+          try {
+            const resp = await fetch(`${apiBase}/api/optimization/today`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+              }
+            })
+            if (resp.ok) {
+              const data = await resp.json()
+              const resultsFromApi = (data?.data?.results || []) as any[]
+              if (Array.isArray(resultsFromApi) && resultsFromApi.length) {
+                try { localStorage.setItem('kmrl-optimization-results', JSON.stringify(resultsFromApi)) } catch {}
+                raw = JSON.stringify(resultsFromApi)
+              }
+            }
+          } catch {}
+        }
+
+        const rawNarr = localStorage.getItem('kmrl-optimization-narratives')
+        const results: any[] = raw ? JSON.parse(raw) : []
+        setHasResults(results.length > 0)
+        const narratives: Record<string, string> = rawNarr ? JSON.parse(rawNarr) : {}
+        // Try Gemini-backed maintenance prediction endpoint first
+        try {
+          const resp = await fetch(`${apiBase}/api/maintenance/predict`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+            },
+            body: JSON.stringify({ results })
+          })
+          if (resp.ok) {
+            const data = await resp.json()
+            const tasks = (data?.data?.tasks || []) as any[]
+            const alerts = (data?.data?.alerts || []) as any[]
+            const mappedTasks: MaintenanceItem[] = tasks.map((t: any, idx: number) => ({
+              id: String(idx + 1),
+              trainId: t.trainId,
+              trainName: t.trainId,
+              type: t.type,
+              status: t.status,
+              priority: t.priority,
+              dueDate: t.dueDate,
+              estimatedDuration: t.estimatedDuration,
+              description: t.description || narratives[t.trainId] || 'Maintenance task',
+              assignedTo: t.assignedTo,
+              progress: t.progress ?? 0
+            }))
+            setMaintenanceData({
+              routine: mappedTasks.filter(t => t.type === 'routine'),
+              inspection: mappedTasks.filter(t => t.type === 'inspection'),
+              repair: mappedTasks.filter(t => t.type === 'repair'),
+              alerts: (alerts || []).map((a: any, i: number) => ({
+                id: String(i + 1),
+                trainId: a.trainId,
+                type: a.type,
+                message: a.message,
+                timestamp: a.timestamp,
+                resolved: !!a.resolved
+              }))
+            })
+            return
+          }
+        } catch {}
+
+        // Fallback local derivation if API not available
+        const maint = results.filter(r => (r.inductionStatus || '').toLowerCase() === 'maintenance')
+        const mapped: MaintenanceItem[] = maint.map((r: any, idx: number) => ({
+          id: String(idx + 1),
+          trainId: r.trainId || r.id || `T${idx + 1}`,
+          trainName: r.trainId || `Train ${idx + 1}`,
+          type: 'repair',
+          status: 'in-progress',
+          priority: 'high',
+          dueDate: new Date().toISOString(),
+          estimatedDuration: 240,
+          description: narratives[(r.trainId || r.id || `T${idx + 1}`)] || r.reason || 'Scheduled corrective maintenance based on optimization results',
+          assignedTo: 'Maintenance Team',
+          progress: 0
         }))
-      })
-    } catch (error) {
-      console.error('Error deriving maintenance data:', error)
-    } finally {
-      setLoading(false)
-    }
+        setMaintenanceData({
+          routine: [],
+          inspection: [],
+          repair: mapped,
+          alerts: mapped.slice(0, 3).map((m, i) => ({
+            id: String(i + 1),
+            trainId: m.trainId,
+            type: 'critical',
+            message: m.description,
+            timestamp: new Date().toISOString(),
+            resolved: false
+          }))
+        })
+      } catch (error) {
+        console.error('Error deriving maintenance data:', error)
+      } finally {
+        setLoading(false)
+      }
+    })()
   }, [])
 
   // If narratives are missing, try fetching them quickly using existing results
@@ -325,7 +390,7 @@ export default function MaintenancePage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       <GATracker page="maintenance" />
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight mb-1">Maintenance Hub</h1>
@@ -381,17 +446,17 @@ export default function MaintenancePage() {
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
           {/* Critical Alerts */}
-          {maintenanceData.alerts.filter(alert => !alert.resolved).length > 0 && (
+      {maintenanceData.alerts.filter(alert => !alert.resolved).length > 0 && (
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                 <AlertTriangle className="text-red-500" /> Active Alerts
               </h2>
-              <div className="space-y-3">
+            <div className="space-y-3 w-full">
                 {maintenanceData.alerts.filter(alert => !alert.resolved).map((alert) => (
-                  <Alert key={alert.id} variant={alert.type === 'critical' ? 'destructive' : 'default'} className="dark:bg-secondary">
-                    <div className="flex flex-row items-center gap-3 w-full">
+                <Alert key={alert.id} variant={alert.type === 'critical' ? 'destructive' : 'default'} className="dark:bg-secondary w-full">
+                  <div className="flex flex-row items-center gap-3 w-full">
                       {getAlertIcon(alert.type)}
-                      <AlertDescription className="font-medium whitespace-normal w-full">
+                    <AlertDescription className="font-medium whitespace-normal w-full flex-1">
                         <strong>{alert.trainId}:</strong> {alert.message}
                       </AlertDescription>
                     </div>
@@ -402,12 +467,12 @@ export default function MaintenancePage() {
           )}
 
           {/* Filters */}
-          <div className="flex flex-col md:flex-row gap-4 mb-6 p-4 bg-muted/50 dark:bg-muted/20 rounded-lg">
-            <div className="relative flex-grow">
+          <div className="flex flex-col md:flex-row gap-4 mb-6 p-4 bg-muted/50 dark:bg-muted/20 rounded-lg w-full">
+            <div className="relative flex-grow w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by train, ID, or description..."
-                className="pl-10"
+                className="pl-10 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
