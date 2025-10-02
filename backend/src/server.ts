@@ -19,6 +19,7 @@ import { fleetRoutes } from './routes/fleet';
 import { learningRoutes } from './routes/learning';
 import { mobileAlertsRoutes } from './routes/mobileAlerts';
 import { chatRoutes } from './routes/chat';
+import performanceRoutes from './routes/performance';
 
 // Load environment variables
 dotenv.config({ path: './.env' });
@@ -108,6 +109,7 @@ app.use('/api/fleet', fleetRoutes);
 app.use('/api/learning', learningRoutes);
 app.use('/api/mobile-alerts', mobileAlertsRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/performance', performanceRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

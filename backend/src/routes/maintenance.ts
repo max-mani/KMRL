@@ -4,6 +4,103 @@ import { AuthRequest } from '../middleware/auth';
 import { OptimizationResult } from '../models/OptimizationResult';
 import { logger } from '../utils/logger';
 
+// Function to generate narrative alerts using Gemini AI
+async function generateNarrativeAlerts(repairTasks: any[], routineTasks: any[], compact: any[], apiKey?: string): Promise<any[]> {
+  const alerts = [];
+  
+  if (!apiKey) {
+    // Fallback alerts without Gemini
+    repairTasks.slice(0, 3).forEach((task, index) => {
+      alerts.push({
+        id: `alert-${index + 1}`,
+        trainId: task.trainId,
+        type: 'critical',
+        message: `Train ${task.trainId} maintenance in progress. Monitor completion.`,
+        timestamp: new Date().toISOString(),
+        resolved: false
+      });
+    });
+    return alerts;
+  }
+
+  try {
+    const GoogleGenerativeAI = require('@google/generative-ai').GoogleGenerativeAI;
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+
+    // Prepare data for narrative generation
+    const alertData = repairTasks.slice(0, 5).map(task => ({
+      trainId: task.trainId,
+      type: task.type,
+      status: task.status,
+      priority: task.priority,
+      description: task.description,
+      score: compact.find(c => c.trainId === task.trainId)?.score || 0
+    }));
+
+    const prompt = `
+You are a railway maintenance coordinator for Kochi Metro Rail Limited (KMRL). 
+Generate detailed narrative explanations for active maintenance alerts based on the following data:
+
+MAINTENANCE TASKS:
+${alertData.map(task => 
+  `- Train ${task.trainId}: ${task.type} maintenance, status: ${task.status}, priority: ${task.priority}, score: ${task.score}%, description: ${task.description}`
+).join('\n')}
+
+Generate 3-5 critical alerts with detailed narrative explanations that:
+1. Explain why each train requires maintenance
+2. Describe the specific issues and their impact
+3. Provide context about the maintenance progress
+4. Include recommendations for monitoring
+
+Return JSON format:
+{
+  "alerts": [
+    {
+      "id": "string",
+      "trainId": "string", 
+      "type": "critical|warning|info",
+      "message": "Detailed narrative explanation",
+      "timestamp": "ISO8601 string",
+      "resolved": false
+    }
+  ]
+}
+
+Focus on trains with the lowest scores and highest priority. Make the narratives informative and actionable.
+`;
+
+    const response = await model.generateContent(prompt);
+    const text = response?.response?.text?.() || response?.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    if (text) {
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        const jsonText = jsonMatch ? jsonMatch[0] : text;
+        const parsed = JSON.parse(jsonText);
+        
+        if (parsed.alerts && Array.isArray(parsed.alerts)) {
+          return parsed.alerts;
+        }
+      } catch (e) {
+        logger.warn('Failed to parse Gemini response for alerts, using fallback');
+      }
+    }
+  } catch (error) {
+    logger.warn('Gemini alert generation failed, using fallback', error);
+  }
+
+  // Fallback alerts
+  return repairTasks.slice(0, 3).map((task, index) => ({
+    id: `alert-${index + 1}`,
+    trainId: task.trainId,
+    type: 'critical',
+    message: `Train ${task.trainId} maintenance in progress. Monitor completion.`,
+    timestamp: new Date().toISOString(),
+    resolved: false
+  }));
+}
+
 const router = express.Router();
 
 // POST /api/maintenance/predict
@@ -111,43 +208,146 @@ router.post('/predict', authenticate, async (req: AuthRequest, res) => {
       }
     }
 
-    // Fallback: derive simple tasks if Gemini unavailable
+    // Fallback: derive comprehensive tasks if Gemini unavailable
     if (!Array.isArray(tasksPayload?.tasks) || tasksPayload.tasks.length === 0) {
-      const derived = compact.map((i, idx) => {
-        // Heuristic task typing
-        let type: 'routine' | 'inspection' | 'repair' = 'repair';
-        if (i.score >= 70 && i.score < 85) type = 'inspection';
-        if (i.score >= 85) type = 'routine';
-        const status: 'scheduled' | 'in-progress' | 'overdue' = i.score < 55 ? 'overdue' : (i.score < 70 ? 'in-progress' : 'scheduled');
+      const derived = [];
+      
+      // Generate comprehensive routine maintenance tasks for all trains
+      const routineTasks = [];
+      
+      // Generate daily routine tasks for all trains
+      compact.forEach((i, idx) => {
+        // Daily routine tasks
+        routineTasks.push({
+          trainId: i.trainId,
+          type: 'routine',
+          status: 'scheduled',
+          priority: 'low',
+          dueDate: new Date(Date.now() + (idx % 7 + 1) * 24 * 60 * 60 * 1000).toISOString(),
+          estimatedDuration: 90,
+          description: `Daily routine maintenance for Train ${i.trainId}. Includes exterior cleaning, interior sanitization, and basic system checks.`,
+          assignedTo: 'Daily Maintenance Team',
+          progress: 0,
+        });
+        
+        // Weekly routine tasks for high-scoring trains
+        if (i.score >= 80) {
+          routineTasks.push({
+            trainId: i.trainId,
+            type: 'routine',
+            status: 'scheduled',
+            priority: 'low',
+            dueDate: new Date(Date.now() + (idx % 14 + 7) * 24 * 60 * 60 * 1000).toISOString(),
+            estimatedDuration: 180,
+            description: `Weekly comprehensive maintenance for Train ${i.trainId}. Includes detailed cleaning, lubrication, and preventive checks.`,
+            assignedTo: 'Weekly Maintenance Team',
+            progress: 0,
+          });
+        }
+        
+        // Monthly routine tasks
+        routineTasks.push({
+          trainId: i.trainId,
+          type: 'routine',
+          status: 'scheduled',
+          priority: 'medium',
+          dueDate: new Date(Date.now() + (idx % 30 + 15) * 24 * 60 * 60 * 1000).toISOString(),
+          estimatedDuration: 240,
+          description: `Monthly deep maintenance for Train ${i.trainId}. Includes comprehensive cleaning, system calibration, and preventive maintenance.`,
+          assignedTo: 'Monthly Maintenance Team',
+          progress: 0,
+        });
+      });
+      
+      // Generate additional routine tasks for specific maintenance types
+      const additionalRoutineTasks = [
+        {
+          trainId: 'System',
+          type: 'routine',
+          status: 'scheduled',
+          priority: 'low',
+          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+          estimatedDuration: 60,
+          description: 'Routine yard cleaning and maintenance equipment inspection.',
+          assignedTo: 'Yard Maintenance Team',
+          progress: 0,
+        },
+        {
+          trainId: 'System',
+          type: 'routine',
+          status: 'scheduled',
+          priority: 'low',
+          dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+          estimatedDuration: 120,
+          description: 'Routine track and platform maintenance inspection.',
+          assignedTo: 'Infrastructure Team',
+          progress: 0,
+        },
+        {
+          trainId: 'System',
+          type: 'routine',
+          status: 'scheduled',
+          priority: 'medium',
+          dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+          estimatedDuration: 300,
+          description: 'Routine safety system inspection and testing.',
+          assignedTo: 'Safety Team',
+          progress: 0,
+        }
+      ];
+      
+      routineTasks.push(...additionalRoutineTasks);
+
+      // Generate inspection tasks for medium-scoring trains
+      const inspectionTasks = compact
+        .filter(i => i.score >= 60 && i.score < 80)
+        .map((i, idx) => {
+          const type: 'routine' | 'inspection' | 'repair' = 'inspection';
+          const status: 'scheduled' | 'in-progress' | 'completed' | 'overdue' = 'scheduled';
+          const dueDate = new Date(Date.now() + (idx % 5 + 1) * 24 * 60 * 60 * 1000).toISOString();
+          
+          return {
+            trainId: i.trainId,
+            type,
+            status,
+            priority: 'medium',
+            dueDate,
+            estimatedDuration: 180,
+            description: `Detailed inspection for Train ${i.trainId}. Check fitness certificates, job card status, and system components.`,
+            assignedTo: 'Inspection Team',
+            progress: 0,
+          };
+        });
+
+      // Generate repair tasks for low-scoring trains
+      const repairTasks = compact
+        .filter(i => i.score < 60)
+        .map((i, idx) => {
+          const type: 'routine' | 'inspection' | 'repair' = 'repair';
+          const status: 'scheduled' | 'in-progress' | 'completed' | 'overdue' = i.score < 40 ? 'overdue' : 'in-progress';
         const dueDate = status === 'overdue'
           ? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-          : status === 'scheduled'
-            ? new Date(Date.now() + (idx % 2 === 0 ? 2 : 5) * 24 * 60 * 60 * 1000).toISOString()
-            : new Date().toISOString();
+            : new Date(Date.now() + (idx % 3 + 1) * 24 * 60 * 60 * 1000).toISOString();
+          
         return {
           trainId: i.trainId,
           type,
           status,
-          priority: i.score < 50 ? 'high' : (i.score < 70 ? 'medium' : 'low'),
+            priority: i.score < 40 ? 'high' : 'medium',
           dueDate,
-          estimatedDuration: type === 'routine' ? 90 : type === 'inspection' ? 150 : 240,
-          description: type === 'routine'
-            ? `Routine preventive maintenance scheduled based on stable score (${i.score}).`
-            : type === 'inspection'
-              ? `Targeted inspection recommended due to moderate score (${i.score}).`
-              : `Prioritize corrective maintenance based on low composite score (${i.score}). Focus on weakest factors.`,
-          assignedTo: type === 'routine' ? 'Routine Team' : type === 'inspection' ? 'Inspection Team' : 'Maintenance Team',
-          progress: status === 'in-progress' ? 0 : 0,
+            estimatedDuration: 300,
+            description: `Corrective maintenance for Train ${i.trainId}. Address critical issues affecting performance score (${i.score}%).`,
+            assignedTo: 'Repair Team',
+            progress: status === 'in-progress' ? Math.floor(Math.random() * 50) : 0,
         };
       });
-      const alerts = derived.slice(0, Math.min(5, derived.length)).map((t, i) => ({
-        id: String(i + 1),
-        trainId: t.trainId,
-        type: 'critical',
-        message: t.description,
-        timestamp: new Date().toISOString(),
-        resolved: false,
-      }));
+
+      // Combine all tasks
+      derived.push(...routineTasks, ...inspectionTasks, ...repairTasks);
+
+      // Generate alerts with narrative explanations using Gemini AI
+      const alerts = await generateNarrativeAlerts(repairTasks, routineTasks, compact, apiKey);
+
       tasksPayload = { tasks: derived, alerts };
     }
 
@@ -234,5 +434,3 @@ router.post('/predict', authenticate, async (req: AuthRequest, res) => {
 });
 
 export { router as maintenanceRoutes };
-
-

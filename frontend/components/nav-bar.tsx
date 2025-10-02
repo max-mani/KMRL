@@ -18,6 +18,7 @@ const links = [
   { href: "/history", label: "Historical Data" },
   { href: "/digital-twin", label: "What-If" },
   { href: "/upload", label: "Upload Data" },
+  { href: "/analytics", label: "Overview" },
 ]
 
 export function NavBar() {
@@ -39,7 +40,7 @@ export function NavBar() {
     router.push("/login")
   }
 
-  const protectedRoutes = new Set(["/dashboard", "/maintenance", "/performance", "/insights", "/history", "/digital-twin", "/what-if", "/upload"])
+  const protectedRoutes = new Set(["/dashboard", "/maintenance", "/performance", "/analytics", "/insights", "/history", "/digital-twin", "/what-if", "/upload"])
   const handleNavClick = (e: React.MouseEvent, href: string) => {
     if (protectedRoutes.has(href) && !user) {
       e.preventDefault()

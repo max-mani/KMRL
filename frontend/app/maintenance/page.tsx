@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar, Clock, AlertTriangle, CheckCircle, Wrench, Eye, Search, Filter, PieChart as PieChartIcon } from "lucide-react"
+import { Calendar, Clock, AlertTriangle, CheckCircle, Wrench, Eye, Search, Filter, PieChart as PieChartIcon, ExternalLink } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts"
 
 interface MaintenanceData {
@@ -41,6 +41,12 @@ interface MaintenanceAlert {
   message: string
   timestamp: string
   resolved: boolean
+  narrative?: string
+  rootCause?: string
+  impact?: string
+  recommendedActions?: string[]
+  expectedResolution?: string
+  riskFactors?: string[]
 }
 
 export default function MaintenancePage() {
@@ -451,14 +457,68 @@ export default function MaintenancePage() {
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                 <AlertTriangle className="text-red-500" /> Active Alerts
               </h2>
-            <div className="space-y-3 w-full">
+            <div className="space-y-4 w-full">
                 {maintenanceData.alerts.filter(alert => !alert.resolved).map((alert) => (
-                <Alert key={alert.id} variant={alert.type === 'critical' ? 'destructive' : 'default'} className="dark:bg-secondary w-full">
-                      {getAlertIcon(alert.type)}
-                    <AlertDescription className="font-medium text-sm w-full">
-                        <strong>{alert.trainId}:</strong> {alert.message}
-                      </AlertDescription>
-                  </Alert>
+                <Alert 
+                  key={alert.id}
+                  variant={alert.type === 'critical' ? 'destructive' : 'default'} 
+                  className="dark:bg-secondary w-full"
+                >
+                  {getAlertIcon(alert.type)}
+                  <AlertDescription className="font-medium text-sm w-full">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-semibold">
+                          <strong>{alert.trainId}:</strong> {alert.message}
+                        </span>
+                        <Badge className={getPriorityColor(alert.type === 'critical' ? 'high' : 'medium')}>
+                          {alert.type === 'critical' ? 'High Priority' : 'Medium Priority'}
+                        </Badge>
+                      </div>
+                      
+                      {/* AI-Generated Narrative */}
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border-l-4 border-blue-500">
+                        <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                          <ExternalLink className="h-4 w-4" />
+                          Narrative Explanation
+                        </h4>
+                        <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                          {alert.narrative || 
+                            (alert.message.includes('maintenance in progress') ? 
+                              `Train ${alert.trainId} is currently undergoing scheduled maintenance procedures. This maintenance is part of our proactive fleet management strategy to ensure optimal performance and passenger safety. The maintenance team is addressing critical system components and conducting thorough inspections to maintain the highest operational standards. Regular monitoring of the maintenance progress is essential to ensure timely completion and minimize service disruptions.` :
+                              `Train ${alert.trainId} requires immediate attention due to critical maintenance issues identified through our advanced monitoring systems. The maintenance team has been deployed to address these concerns promptly. Continuous monitoring of the repair progress is crucial to ensure the train returns to service as quickly as possible while maintaining safety standards.`
+                            )
+                          }
+                        </p>
+                      </div>
+
+                      {/* Status and Actions */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="p-2 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg">
+                          <h5 className="font-medium text-xs mb-1 text-yellow-700 dark:text-yellow-300">Status</h5>
+                          <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300 text-xs">
+                            In Progress
+                          </Badge>
+                        </div>
+                        <div className="p-2 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                          <h5 className="font-medium text-xs mb-1 text-green-700 dark:text-green-300">Monitoring Required</h5>
+                          <span className="text-xs text-green-600 dark:text-green-400">Hourly Updates</span>
+                        </div>
+                      </div>
+
+                      {/* Recommended Actions */}
+                      <div className="p-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                        <h5 className="font-medium text-xs mb-2 text-gray-700 dark:text-gray-300">Recommended Actions</h5>
+                        <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                          <li>• Monitor maintenance progress hourly</li>
+                          <li>• Ensure safety protocols are followed</li>
+                          <li>• Update stakeholders on completion timeline</li>
+                          <li>• Prepare for post-maintenance testing</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </AlertDescription>
+                </Alert>
                 ))}
               </div>
             </div>

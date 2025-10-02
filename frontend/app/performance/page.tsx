@@ -63,40 +63,67 @@ export default function PerformancePage() {
     try {
       const user = localStorage.getItem('kmrl-user')
       setHasUser(!!user)
-      const results = localStorage.getItem('kmrl-optimization-results')
-      setHasResults(!!results)
+      // Don't require optimization results for performance data - API has its own data
+      setHasResults(true)
     } catch {}
 
     const fetchPerformanceData = async () => {
       try {
-        // derive minimal performance from uploaded results
-        const raw = localStorage.getItem('kmrl-optimization-results')
-        const results: any[] = raw ? JSON.parse(raw) : []
-        const scores = results.map(r => Number(r.score) || 0)
-        const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
-        const running = results.filter(r => Number(r.score) >= 65).length
-        const standby = results.filter(r => Number(r.score) >= 50 && Number(r.score) < 65).length
-        const maintenance = results.filter(r => Number(r.score) < 50).length
-        setPerformanceData({
-          kpis: {
-            punctuality: 0,
-            energyEfficiency: 0,
-            mileageBalance: 0,
-            brandingCompliance: 0,
-            averageScore: avg,
-            shuntingCost: 0
-          },
-          trends: { punctuality: [], energyEfficiency: [], mileageBalance: [], brandingCompliance: [] },
-          fleetDistribution: [
-            { name: 'Running', value: running, color: '#10b981' },
-            { name: 'Standby', value: standby, color: '#f59e0b' },
-            { name: 'Maintenance', value: maintenance, color: '#ef4444' }
-          ],
-          energyConsumption: [],
-          alerts: []
+        const token = localStorage.getItem('kmrl-token')
+        if (!token) {
+          setLoading(false)
+          return
+        }
+
+        const response = await fetch('http://localhost:3001/api/performance/metrics', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            setPerformanceData(data.data)
+          } else {
+            console.error('API returned error:', data.message)
+          }
+        } else {
+          console.error('Failed to fetch performance data:', response.status, response.statusText)
+        }
       } catch (error) {
         console.error('Error fetching performance data:', error)
+        // Fallback to localStorage data if API fails
+        try {
+          const raw = localStorage.getItem('kmrl-optimization-results')
+          const results: any[] = raw ? JSON.parse(raw) : []
+          const scores = results.map(r => Number(r.score) || 0)
+          const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
+          const running = results.filter(r => Number(r.score) >= 65).length
+          const standby = results.filter(r => Number(r.score) >= 50 && Number(r.score) < 65).length
+          const maintenance = results.filter(r => Number(r.score) < 50).length
+          setPerformanceData({
+            kpis: {
+              punctuality: 0,
+              energyEfficiency: 0,
+              mileageBalance: 0,
+              brandingCompliance: 0,
+              averageScore: avg,
+              shuntingCost: 0
+            },
+            trends: { punctuality: [], energyEfficiency: [], mileageBalance: [], brandingCompliance: [] },
+            fleetDistribution: [
+              { name: 'Running', value: running, color: '#10b981' },
+              { name: 'Standby', value: standby, color: '#f59e0b' },
+              { name: 'Maintenance', value: maintenance, color: '#ef4444' }
+            ],
+            energyConsumption: [],
+            alerts: []
+          })
+        } catch (fallbackError) {
+          console.error('Fallback data loading failed:', fallbackError)
+        }
       } finally {
         setLoading(false)
       }

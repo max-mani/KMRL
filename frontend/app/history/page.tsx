@@ -101,35 +101,65 @@ export default function HistoryPage() {
     try {
       const user = localStorage.getItem('kmrl-user')
       setHasUser(!!user)
-      const results = localStorage.getItem('kmrl-optimization-results')
-      setHasResults(!!results)
+      // Don't require optimization results for historical data - API has its own data
+      setHasResults(true)
     } catch {}
 
     const fetchHistoricalData = async () => {
       try {
-        // derive simple history snapshot from uploaded results
-        const raw = localStorage.getItem('kmrl-optimization-results')
-        const results: any[] = raw ? JSON.parse(raw) : []
-        const avg = results.length ? Math.round(results.reduce((s, r) => s + (Number(r.score) || 0), 0) / results.length) : 0
-        const running = results.filter(r => Number(r.score) >= 80).length
-        const standby = results.filter(r => Number(r.score) >= 45 && Number(r.score) < 80).length
-        const maintenance = results.filter(r => Number(r.score) < 45).length
-        const today = new Date().toISOString().slice(0, 10)
-        setHistoricalData({
-          optimizationHistory: [{ date: today, totalTrains: results.length, serviceTrains: running, standbyTrains: standby, maintenanceTrains: maintenance, averageScore: avg, energyEfficiency: 0, punctuality: 0, brandingCompliance: 0, shuntingCost: 0 }],
-          performanceTrends: [{ date: today, punctuality: 0, energyEfficiency: 0, mileageBalance: 0, brandingCompliance: 0 }],
-          maintenanceHistory: [{ date: today, routineMaintenance: 0, inspections: 0, repairs: maintenance, totalCost: 0 }],
-          energyConsumption: [{ date: today, dailyConsumption: 0, peakHours: 0, offPeakHours: 0, shuntingEnergy: 0 }]
+        const token = localStorage.getItem('kmrl-token')
+        if (!token) {
+          setLoading(false)
+          return
+        }
+
+        const apiUrl = `http://localhost:3001/api/performance/history?period=${selectedPeriod}`
+        console.log('History API URL:', apiUrl)
+        const response = await fetch(apiUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         })
-        setComparisonData({
-          today: { averageScore: avg, punctuality: 0, energyEfficiency: 0, cost: 0 },
-          yesterday: { averageScore: avg, punctuality: 0, energyEfficiency: 0, cost: 0 },
-          lastWeek: { averageScore: avg, punctuality: 0, energyEfficiency: 0, cost: 0 },
-          lastMonth: { averageScore: avg, punctuality: 0, energyEfficiency: 0, cost: 0 },
-          changes: { averageScoreChange: 0, punctualityChange: 0, energyEfficiencyChange: 0, costChange: 0 }
-        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            setHistoricalData(data.data.historicalData)
+            setComparisonData(data.data.comparisonData)
+          } else {
+            console.error('API returned error:', data.message)
+          }
+        } else {
+          console.error('Failed to fetch historical data:', response.status)
+        }
       } catch (error) {
         console.error('Error fetching historical data:', error)
+        // Fallback to localStorage data if API fails
+        try {
+          const raw = localStorage.getItem('kmrl-optimization-results')
+          const results: any[] = raw ? JSON.parse(raw) : []
+          const avg = results.length ? Math.round(results.reduce((s, r) => s + (Number(r.score) || 0), 0) / results.length) : 0
+          const running = results.filter(r => Number(r.score) >= 80).length
+          const standby = results.filter(r => Number(r.score) >= 45 && Number(r.score) < 80).length
+          const maintenance = results.filter(r => Number(r.score) < 45).length
+          const today = new Date().toISOString().slice(0, 10)
+          setHistoricalData({
+            optimizationHistory: [{ date: today, totalTrains: results.length, serviceTrains: running, standbyTrains: standby, maintenanceTrains: maintenance, averageScore: avg, energyEfficiency: 0, punctuality: 0, brandingCompliance: 0, shuntingCost: 0 }],
+            performanceTrends: [{ date: today, punctuality: 0, energyEfficiency: 0, mileageBalance: 0, brandingCompliance: 0 }],
+            maintenanceHistory: [{ date: today, routineMaintenance: 0, inspections: 0, repairs: maintenance, totalCost: 0 }],
+            energyConsumption: [{ date: today, dailyConsumption: 0, peakHours: 0, offPeakHours: 0, shuntingEnergy: 0 }]
+          })
+          setComparisonData({
+            today: { averageScore: avg, punctuality: 0, energyEfficiency: 0, cost: 0 },
+            yesterday: { averageScore: avg, punctuality: 0, energyEfficiency: 0, cost: 0 },
+            lastWeek: { averageScore: avg, punctuality: 0, energyEfficiency: 0, cost: 0 },
+            lastMonth: { averageScore: avg, punctuality: 0, energyEfficiency: 0, cost: 0 },
+            changes: { averageScoreChange: 0, punctualityChange: 0, energyEfficiencyChange: 0, costChange: 0 }
+          })
+        } catch (fallbackError) {
+          console.error('Fallback data loading failed:', fallbackError)
+        }
       } finally {
         setLoading(false)
       }

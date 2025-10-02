@@ -68,83 +68,76 @@ export default function InsightsPage() {
     try {
       const user = localStorage.getItem('kmrl-user')
       setHasUser(!!user)
-      const results = localStorage.getItem('kmrl-optimization-results')
-      setHasResults(!!results)
+      // Don't require optimization results for insights data - API has its own data
+      setHasResults(true)
     } catch {}
 
     const fetchInsights = async () => {
       try {
-        // derive simple insights from uploaded results
-        const raw = localStorage.getItem('kmrl-optimization-results')
-        const results: any[] = raw ? JSON.parse(raw) : []
-        let derived: CriticalInsight[] = results.slice(0, 8).map((r, idx) => ({
-          id: String(idx + 1),
-          type: r.score < 60 ? 'critical' : r.score < 75 ? 'warning' : 'recommendation',
-          category: 'efficiency',
-          title: `${r.trainId || 'Train'} optimization insight`,
-          description: r.reason || 'Narrative explanation generated using Gemini',
-          impact: r.score < 60 ? 'high' : r.score < 75 ? 'medium' : 'low',
-          urgency: r.score < 60 ? 'immediate' : r.score < 75 ? 'within-24h' : 'within-week',
-          affectedTrains: [r.trainId || `T${idx + 1}`],
-          recommendedActions: [
-            r.score < 60 ? 'Schedule maintenance' : 'Deploy to service',
-            'Review factor breakdown'
-          ],
-          estimatedSavings: undefined,
-          timestamp: new Date().toISOString(),
-          resolved: false
-        }))
-
-        // Fetch better narratives from backend for these trains
-        if (derived.length > 0) {
-          try {
-            const resp = await fetch(`${apiBase}/api/optimization/narrative/trains`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
-              },
-              body: JSON.stringify({ trains: results.slice(0, 8).map((r: any) => ({
-                trainId: r.trainId,
-                score: r.score,
-                inductionStatus: r.inductionStatus,
-                factors: {
-                  fitness: r.factors?.fitness?.score ?? 0,
-                  jobCard: r.factors?.jobCard?.score ?? 0,
-                  branding: r.factors?.branding?.score ?? 0,
-                  mileage: r.factors?.mileage?.score ?? 0,
-                  cleaning: r.factors?.cleaning?.score ?? 0,
-                  geometry: r.factors?.geometry?.score ?? 0,
-                },
-                ...(typeof r.stablingBay !== 'undefined' ? { stablingBay: r.stablingBay } : {}),
-                ...(typeof r.cleaningSlot !== 'undefined' ? { cleaningSlot: r.cleaningSlot } : {}),
-              })) })
-            })
-            if (resp.ok) {
-              const data = await resp.json()
-              const byTrain: Record<string, string> = {}
-              ;(data.narratives || []).forEach((n: any) => { if (n.trainId && n.narrative) byTrain[n.trainId] = n.narrative })
-              derived = derived.map((d) => ({
-                ...d,
-                description: byTrain[d.affectedTrains[0]] || d.description
-              }))
-            }
-          } catch {}
+        const token = localStorage.getItem('kmrl-token')
+        if (!token) {
+          setLoading(false)
+          return
         }
 
-        setInsights(derived)
-        const newMetrics: InsightMetrics = {
-          totalInsights: derived.length,
-          criticalCount: derived.filter(i => i.type === 'critical').length,
-          warningCount: derived.filter(i => i.type === 'warning').length,
-          recommendationCount: derived.filter(i => i.type === 'recommendation').length,
-          opportunityCount: derived.filter(i => i.type === 'opportunity').length,
-          resolvedCount: derived.filter(i => i.resolved).length,
-          pendingCount: derived.filter(i => !i.resolved).length
+        const apiUrl = 'http://localhost:3001/api/performance/insights'
+        console.log('Insights API URL:', apiUrl)
+        const response = await fetch(apiUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            setInsights(data.data.insights)
+            setMetrics(data.data.metrics)
+          } else {
+            console.error('API returned error:', data.message)
+          }
+        } else {
+          console.error('Failed to fetch insights:', response.status)
         }
-        setMetrics(newMetrics)
       } catch (error) {
         console.error('Error fetching insights:', error)
+        // Fallback to localStorage data if API fails
+        try {
+          const raw = localStorage.getItem('kmrl-optimization-results')
+          const results: any[] = raw ? JSON.parse(raw) : []
+          let derived: CriticalInsight[] = results.slice(0, 8).map((r, idx) => ({
+            id: String(idx + 1),
+            type: r.score < 60 ? 'critical' : r.score < 75 ? 'warning' : 'recommendation',
+            category: 'efficiency',
+            title: `${r.trainId || 'Train'} optimization insight`,
+            description: r.reason || 'Narrative explanation generated using Gemini',
+            impact: r.score < 60 ? 'high' : r.score < 75 ? 'medium' : 'low',
+            urgency: r.score < 60 ? 'immediate' : r.score < 75 ? 'within-24h' : 'within-week',
+            affectedTrains: [r.trainId || `T${idx + 1}`],
+            recommendedActions: [
+              r.score < 60 ? 'Schedule maintenance' : 'Deploy to service',
+              'Review factor breakdown'
+            ],
+            estimatedSavings: undefined,
+            timestamp: new Date().toISOString(),
+            resolved: false
+          }))
+
+          setInsights(derived)
+          const newMetrics: InsightMetrics = {
+            totalInsights: derived.length,
+            criticalCount: derived.filter(i => i.type === 'critical').length,
+            warningCount: derived.filter(i => i.type === 'warning').length,
+            recommendationCount: derived.filter(i => i.type === 'recommendation').length,
+            opportunityCount: derived.filter(i => i.type === 'opportunity').length,
+            resolvedCount: derived.filter(i => i.resolved).length,
+            pendingCount: derived.filter(i => !i.resolved).length
+          }
+          setMetrics(newMetrics)
+        } catch (fallbackError) {
+          console.error('Fallback data loading failed:', fallbackError)
+        }
       } finally {
         setLoading(false)
       }
