@@ -79,6 +79,7 @@ export default function UploadPage() {
 
   function onCSV(file: File) {
     setUploadStatus('processing')
+    setOptimizationResults([])
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
@@ -98,6 +99,7 @@ export default function UploadPage() {
   async function uploadMultiCategory() {
     setIsProcessing(true)
     setUploadStatus('processing')
+    setOptimizationResults([])
     try {
       const form = new FormData()
       ;(Object.keys(categoryFiles) as (keyof typeof categoryFiles)[]).forEach((k) => {
@@ -163,6 +165,7 @@ export default function UploadPage() {
     } catch (e) {
       console.error(e)
       setUploadStatus('error')
+      setOptimizationResults([])
     } finally {
       setIsProcessing(false)
     }
@@ -170,6 +173,7 @@ export default function UploadPage() {
 
   async function onXLSX(file: File) {
     setUploadStatus('processing')
+    setOptimizationResults([])
     try {
       const buf = await file.arrayBuffer()
       const wb = XLSX.read(buf, { type: "array" })
@@ -186,6 +190,7 @@ export default function UploadPage() {
 
   async function fetchGSheet() {
     setUploadStatus('processing')
+    setOptimizationResults([])
     try {
       const resp = await fetch(`${apiBase}/api/upload/google-sheet`, {
         method: 'POST',
@@ -280,6 +285,8 @@ export default function UploadPage() {
         const optResults = result.data.optimizationResults
         setOptimizationResults(optResults)
         try { localStorage.setItem('kmrl-optimization-results', JSON.stringify(optResults)) } catch {}
+        setUploadStatus('completed')
+        setActiveTab('results')
         // Fetch narratives
         try {
           const resp = await fetch(`${apiBase}/api/optimization/narrative/trains`, {
@@ -312,13 +319,13 @@ export default function UploadPage() {
             try { localStorage.setItem('kmrl-optimization-narratives', JSON.stringify(map)) } catch {}
           }
         } catch {}
-        setActiveTab('results')
       } else {
         throw new Error(result.message || 'Optimization failed')
       }
     } catch (error) {
       console.error('Optimization error:', error)
       setOptimizationResults([])
+      setUploadStatus('error')
     } finally {
       setIsProcessing(false)
     }
@@ -716,8 +723,13 @@ export default function UploadPage() {
                 <CardContent className="p-6 text-center">
                   <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" style={{ color: "var(--kmrl-teal)" }} />
                   <h3 className="text-lg font-semibold mb-2">Running Optimization Engine</h3>
-                  <p className="text-muted-foreground mb-4">Analyzing six factors for each train...</p>
-                  <Progress value={66} className="w-full" />
+                  <p className="text-muted-foreground mb-4">
+                    {Object.values(categoryFiles).some(files => files.length > 0) 
+                      ? "Processing uploaded files and analyzing train data..." 
+                      : "Analyzing train data and calculating optimization scores..."
+                    }
+                  </p>
+                  <Progress value={75} className="w-full" />
                 </CardContent>
               </Card>
             )}

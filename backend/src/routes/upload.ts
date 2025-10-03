@@ -1,6 +1,5 @@
 import express from 'express';
 import multer from 'multer';
-import type { File as MulterFile } from 'multer';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { UploadedData, ProcessedTrainData } from '../models/UploadedData';
@@ -374,7 +373,7 @@ const parseBufferToRows = (buffer: Buffer, originalName: string): any[] => {
 // POST /api/upload/data/multi - category-wise multi-file ingestion
 router.post('/data/multi', authenticate, categoryUpload, async (req: AuthRequest, res) => {
   try {
-    const filesByCategory = (req as any).files as Record<string, MulterFile[]> | undefined;
+    const filesByCategory = (req as any).files as Record<string, Express.Multer.File[]> | undefined;
     if (!filesByCategory || Object.values(filesByCategory).every(arr => !arr || arr.length === 0)) {
       return res.status(400).json({ success: false, message: 'No files uploaded for any category' });
     }
@@ -382,7 +381,7 @@ router.post('/data/multi', authenticate, categoryUpload, async (req: AuthRequest
     const trainMap: Record<string, ProcessedTrainData> = {};
 
     for (const category of CATEGORY_KEYS) {
-      const files = (filesByCategory?.[category] || []) as MulterFile[];
+      const files = (filesByCategory?.[category] || []) as Express.Multer.File[];
       if (!files.length) continue;
 
       // For each file, read buffer and parse rows
@@ -448,149 +447,119 @@ router.post('/data/multi', authenticate, categoryUpload, async (req: AuthRequest
 
     await uploadedData.save();
 
-    // Run Python optimization similar to single upload path
-    try {
-      const pythonResults = await PythonOptimizationService.runOptimization(processedData);
-      if (!pythonResults.success) {
-        throw new Error(pythonResults.error || 'Python optimization failed');
-      }
-
-      const optimizationResults = pythonResults.results!.map(result => ({
-        trainId: result.trainId,
-        score: result.overallScore,
+    // Determine which fields were provided
+    const providedFields = CATEGORY_KEYS.filter(key => 
+      processedData.some(train => train[key] > 0)
+    );
+    
+    // Calculate scores based only on provided fields
+    const optimizationResults = processedData.map(train => {
+      const providedScores = providedFields.map(field => train[field]).filter(score => score > 0);
+      const averageScore = providedScores.length > 0 
+        ? providedScores.reduce((sum, score) => sum + score, 0) / providedScores.length
+        : 0;
+      
+      const scaledScore = Math.round(averageScore); // Score is already 0-100 scale
+      
+      const toStatus = (score: number) => {
+        if (score >= 80) return 'great';
+        if (score >= 65) return 'good';
+        if (score >= 50) return 'ok';
+        return 'bad';
+      };
+      
+      const inductionStatus = scaledScore >= 70 ? 'running' : scaledScore >= 50 ? 'standby' : 'maintenance';
+      
+      return {
+        trainId: train.trainId,
+        score: scaledScore,
         factors: {
-          fitness: { score: result.fitnessScore, status: result.fitnessScore >= 70 ? 'great' : result.fitnessScore >= 55 ? 'good' : result.fitnessScore >= 40 ? 'ok' : 'bad' },
-          jobCard: { score: result.jobCardScore, status: result.jobCardScore >= 70 ? 'great' : result.jobCardScore >= 55 ? 'good' : result.jobCardScore >= 40 ? 'ok' : 'bad' },
-          branding: { score: result.brandingScore, status: result.brandingScore >= 70 ? 'great' : result.brandingScore >= 55 ? 'good' : result.brandingScore >= 40 ? 'ok' : 'bad' },
-          mileage: { score: result.mileageScore, status: result.mileageScore >= 70 ? 'great' : result.mileageScore >= 55 ? 'good' : result.mileageScore >= 40 ? 'ok' : 'bad' },
-          cleaning: { score: result.cleaningScore, status: result.cleaningScore >= 70 ? 'great' : result.cleaningScore >= 55 ? 'good' : result.cleaningScore >= 40 ? 'ok' : 'bad' },
-          geometry: { score: result.geometryScore, status: result.geometryScore >= 70 ? 'great' : result.geometryScore >= 55 ? 'good' : result.geometryScore >= 40 ? 'ok' : 'bad' }
+          fitness: { 
+            score: train.fitnessCertificate, 
+            status: toStatus(train.fitnessCertificate) 
+          },
+          jobCard: { 
+            score: train.jobCardStatus, 
+            status: toStatus(train.jobCardStatus) 
+          },
+          branding: { 
+            score: train.brandingPriority, 
+            status: toStatus(train.brandingPriority) 
+          },
+          mileage: { 
+            score: train.mileageBalancing, 
+            status: toStatus(train.mileageBalancing) 
+          },
+          cleaning: { 
+            score: train.cleaningDetailing, 
+            status: toStatus(train.cleaningDetailing) 
+          },
+          geometry: { 
+            score: train.stablingGeometry, 
+            status: toStatus(train.stablingGeometry) 
+          }
         },
-        inductionStatus: result.overallScore >= 65 ? 'running' : result.overallScore >= 50 ? 'standby' : 'maintenance',
-        cleaningSlot: result.cleaningSlot,
-        stablingBay: result.stablingBay,
-        reason: result.explainability
-      }));
+        inductionStatus,
+        cleaningSlot: 0,
+        stablingBay: 0,
+        reason: `Score: ${scaledScore}% based on ${providedFields.length} provided factors: ${providedFields.join(', ')}`
+      };
+    });
 
-      const optimizationResult = new OptimizationResult({
-        userId: req.user!._id,
-        results: optimizationResults.map(r => ({
-          trainId: r.trainId,
-          score: r.score,
-          factors: {
-            fitness: r.factors.fitness.status as any,
-            jobCard: r.factors.jobCard.status as any,
-            branding: r.factors.branding.status as any,
-            mileage: r.factors.mileage.status as any,
-            cleaning: r.factors.cleaning.status as any,
-            geometry: r.factors.geometry.status as any
-          },
-          reason: r.reason,
-          rawData: {
-            fitnessCertificate: processedData.find(p => p.trainId === r.trainId)?.fitnessCertificate || 0,
-            jobCardStatus: processedData.find(p => p.trainId === r.trainId)?.jobCardStatus || 0,
-            brandingPriority: processedData.find(p => p.trainId === r.trainId)?.brandingPriority || 0,
-            mileageBalancing: processedData.find(p => p.trainId === r.trainId)?.mileageBalancing || 0,
-            cleaningDetailing: processedData.find(p => p.trainId === r.trainId)?.cleaningDetailing || 0,
-            stablingGeometry: processedData.find(p => p.trainId === r.trainId)?.stablingGeometry || 0
-          }
-        })),
-        totalTrains: optimizationResults.length,
-        averageScore: Math.round(pythonResults.summary!.averageScore)
-      });
+    // Sort results by score (descending)
+    optimizationResults.sort((a, b) => b.score - a.score);
+    
+    const averageScore = optimizationResults.length > 0 
+      ? Math.round(optimizationResults.reduce((sum, r) => sum + r.score, 0) / optimizationResults.length)
+      : 0;
 
-      await optimizationResult.save();
-
-      return res.json({
-        success: true,
-        message: 'Multi-file data uploaded and processed successfully with Python optimization',
-        data: {
-          uploadId: uploadedData._id,
-          totalTrains: processedData.length,
-          averageScore: Math.round(pythonResults.summary!.averageScore),
-          optimizationResults,
-          summary: pythonResults.summary
+    const optimizationResult = new OptimizationResult({
+      userId: req.user!._id,
+      results: optimizationResults.map(r => ({
+        trainId: r.trainId,
+        score: r.score,
+        factors: {
+          fitness: r.factors.fitness.status as any,
+          jobCard: r.factors.jobCard.status as any,
+          branding: r.factors.branding.status as any,
+          mileage: r.factors.mileage.status as any,
+          cleaning: r.factors.cleaning.status as any,
+          geometry: r.factors.geometry.status as any
+        },
+        reason: r.reason,
+        rawData: {
+          fitnessCertificate: processedData.find(p => p.trainId === r.trainId)?.fitnessCertificate || 0,
+          jobCardStatus: processedData.find(p => p.trainId === r.trainId)?.jobCardStatus || 0,
+          brandingPriority: processedData.find(p => p.trainId === r.trainId)?.brandingPriority || 0,
+          mileageBalancing: processedData.find(p => p.trainId === r.trainId)?.mileageBalancing || 0,
+          cleaningDetailing: processedData.find(p => p.trainId === r.trainId)?.cleaningDetailing || 0,
+          stablingGeometry: processedData.find(p => p.trainId === r.trainId)?.stablingGeometry || 0
         }
-      });
-    } catch (pythonError) {
-      logger.error('Python optimization failed for multi-file upload, using fallback:', pythonError);
+      })),
+      totalTrains: optimizationResults.length,
+      averageScore
+    });
 
-      const scores = processedData.map(train => {
-        const factors = {
-          fitness: train.fitnessCertificate,
-          jobCard: train.jobCardStatus,
-          branding: train.brandingPriority,
-          mileage: train.mileageBalancing,
-          cleaning: train.cleaningDetailing,
-          geometry: train.stablingGeometry
-        };
-        return OptimizationEngine.calculateOverallScore(factors, OptimizationEngine['DEFAULT_WEIGHTS']);
-      });
+    await optimizationResult.save();
 
-      const responseResults = processedData.map((p, idx) => {
-        const score = Math.round(scores[idx] || 0);
-        const toStatus = (v: number) => (v >= 70 ? 'great' : v >= 55 ? 'good' : v >= 40 ? 'ok' : 'bad');
-        const inductionStatus = score >= 65 ? 'running' : score >= 40 ? 'standby' : 'maintenance';
-        return {
-          trainId: p.trainId,
-          score,
-          inductionStatus,
-          cleaningSlot: 0,
-          stablingBay: 0,
-          factors: {
-            fitness: { score: Math.round(p.fitnessCertificate), status: toStatus(p.fitnessCertificate) },
-            jobCard: { score: Math.round(p.jobCardStatus), status: toStatus(p.jobCardStatus) },
-            branding: { score: Math.round(p.brandingPriority), status: toStatus(p.brandingPriority) },
-            mileage: { score: Math.round(p.mileageBalancing), status: toStatus(p.mileageBalancing) },
-            cleaning: { score: Math.round(p.cleaningDetailing), status: toStatus(p.cleaningDetailing) },
-            geometry: { score: Math.round(p.stablingGeometry), status: toStatus(p.stablingGeometry) }
-          },
-          reason: 'Baseline optimization from weighted factors',
-          rawData: {
-            fitnessCertificate: p.fitnessCertificate,
-            jobCardStatus: p.jobCardStatus,
-            brandingPriority: p.brandingPriority,
-            mileageBalancing: p.mileageBalancing,
-            cleaningDetailing: p.cleaningDetailing,
-            stablingGeometry: p.stablingGeometry
-          }
-        };
-      });
-
-      const averageScore = responseResults.length > 0 ? Math.round(responseResults.reduce((s, r) => s + r.score, 0) / responseResults.length) : 0;
-
-      const optimizationResult = new OptimizationResult({
-        userId: req.user!._id,
-        results: responseResults.map(r => ({
-          trainId: r.trainId,
-          score: r.score,
-          factors: {
-            fitness: r.factors.fitness.status as any,
-            jobCard: r.factors.jobCard.status as any,
-            branding: r.factors.branding.status as any,
-            mileage: r.factors.mileage.status as any,
-            cleaning: r.factors.cleaning.status as any,
-            geometry: r.factors.geometry.status as any
-          },
-          reason: r.reason,
-          rawData: r.rawData
-        })),
-        totalTrains: responseResults.length,
-        averageScore
-      });
-      await optimizationResult.save();
-
-      return res.json({
-        success: true,
-        message: 'Multi-file data uploaded and processed successfully (fallback optimization)',
-        data: {
-          uploadId: uploadedData._id,
-          totalTrains: processedData.length,
-          averageScore,
-          optimizationResults: responseResults
+    return res.json({
+      success: true,
+      message: `Multi-file data uploaded and processed successfully. Scores calculated based on ${providedFields.length} provided factors: ${providedFields.join(', ')}`,
+      data: {
+        uploadId: uploadedData._id,
+        totalTrains: processedData.length,
+        averageScore,
+        optimizationResults,
+        providedFields,
+        summary: {
+          total_trains: optimizationResults.length,
+          average_score: averageScore,
+          provided_factors: providedFields,
+          highest_score: optimizationResults.length > 0 ? optimizationResults[0].score : 0,
+          lowest_score: optimizationResults.length > 0 ? optimizationResults[optimizationResults.length - 1].score : 0
         }
-      });
-    }
+      }
+    });
   } catch (error) {
     logger.error('Multi-file upload error:', error);
     return res.status(500).json({ success: false, message: 'Error processing multi-file upload' });
