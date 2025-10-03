@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import { Request } from 'express';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { UploadedData, ProcessedTrainData } from '../models/UploadedData';
@@ -373,7 +374,7 @@ const parseBufferToRows = (buffer: Buffer, originalName: string): any[] => {
 // POST /api/upload/data/multi - category-wise multi-file ingestion
 router.post('/data/multi', authenticate, categoryUpload, async (req: AuthRequest, res) => {
   try {
-    const filesByCategory = (req as any).files as Record<string, Express.Multer.File[]> | undefined;
+    const filesByCategory = (req as any).files as Record<string, any[]> | undefined;
     if (!filesByCategory || Object.values(filesByCategory).every(arr => !arr || arr.length === 0)) {
       return res.status(400).json({ success: false, message: 'No files uploaded for any category' });
     }
@@ -381,7 +382,7 @@ router.post('/data/multi', authenticate, categoryUpload, async (req: AuthRequest
     const trainMap: Record<string, ProcessedTrainData> = {};
 
     for (const category of CATEGORY_KEYS) {
-      const files = (filesByCategory?.[category] || []) as Express.Multer.File[];
+      const files = (filesByCategory?.[category] || []) as any[];
       if (!files.length) continue;
 
       // For each file, read buffer and parse rows
