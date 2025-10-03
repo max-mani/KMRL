@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { Edit2, Check, X } from "lucide-react"
 
 type OverrideMap = Record<string, any>
@@ -19,9 +19,12 @@ const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_
 
 export function ManualOverrideProvider({ children }: { children: React.ReactNode }) {
   const [overrides, setOverrides] = useState<OverrideMap>({})
+  const loadedRef = useRef(false)
 
   useEffect(() => {
     (async () => {
+      if (loadedRef.current) return
+      loadedRef.current = true
       // optimistic load from local cache
       try {
         const saved = localStorage.getItem(STORAGE_KEY)
@@ -29,9 +32,15 @@ export function ManualOverrideProvider({ children }: { children: React.ReactNode
       } catch {}
       // fetch from API
       try {
+        const token = localStorage.getItem('kmrl-token') || ''
+        if (!token) return
         const resp = await fetch(`${apiBase}/api/overrides`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}` }
+          headers: { 'Authorization': `Bearer ${token}` }
         })
+        if (resp.status === 401) {
+          try { localStorage.removeItem('kmrl-token'); localStorage.removeItem('kmrl-user') } catch {}
+          return
+        }
         if (resp.ok) {
           const data = await resp.json()
           if (data?.data?.overrides) setOverrides(data.data.overrides)
@@ -49,11 +58,13 @@ export function ManualOverrideProvider({ children }: { children: React.ReactNode
       const next = { ...prev, [key]: value }
       // fire and forget save to API
       try {
+        const token = localStorage.getItem('kmrl-token') || ''
+        if (!token) return
         fetch(`${apiBase}/api/overrides`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({ overrides: { [key]: value } })
         })
@@ -68,9 +79,11 @@ export function ManualOverrideProvider({ children }: { children: React.ReactNode
       delete next[key]
       // fire and forget delete to API
       try {
+        const token = localStorage.getItem('kmrl-token') || ''
+        if (!token) return
         fetch(`${apiBase}/api/overrides/${encodeURIComponent(key)}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}` }
+          headers: { 'Authorization': `Bearer ${token}` }
         })
       } catch {}
       return next
@@ -82,11 +95,13 @@ export function ManualOverrideProvider({ children }: { children: React.ReactNode
       const next = {}
       // replace on server
       try {
+        const token = localStorage.getItem('kmrl-token') || ''
+        if (!token) return
         fetch(`${apiBase}/api/overrides`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({ overrides: next })
         })
