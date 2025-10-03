@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import Papa from "papaparse"
 import * as XLSX from "xlsx"
+import { EditableValue, useManualOverride } from "@/components/manual-override"
 
 type Row = Record<string, string | number | null | undefined>
 
@@ -66,6 +67,7 @@ export default function UploadPage() {
   const [optimizationResults, setOptimizationResults] = useState<any[]>([])
   const [narratives, setNarratives] = useState<Record<string, string>>({})
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle')
+  const [uploadErrorMessage, setUploadErrorMessage] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'upload' | 'results'>('upload')
   const [categoryFiles, setCategoryFiles] = useState<Record<string, File[]>>({
     fitnessCertificate: [],
@@ -76,8 +78,10 @@ export default function UploadPage() {
     stablingGeometry: []
   })
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
+  const { overrides } = useManualOverride()
 
   function onCSV(file: File) {
+    setUploadErrorMessage(null)
     setUploadStatus('processing')
     setOptimizationResults([])
     Papa.parse(file, {
@@ -88,18 +92,27 @@ export default function UploadPage() {
         setRows(data)
         setHeaders(Object.keys(data[0] || {}))
         setUploadStatus('completed')
-        uploadFile(file)
+        setActiveTab('upload')
       },
       error: () => {
+        setUploadErrorMessage('Failed to parse CSV file')
         setUploadStatus('error')
       }
     })
   }
 
   async function uploadMultiCategory() {
+    // Validate at least one file is provided across categories
+    const hasAnyFiles = Object.values(categoryFiles).some((files) => (files || []).length > 0)
+    if (!hasAnyFiles) {
+      setUploadErrorMessage('No files uploaded for any category')
+      setUploadStatus('error')
+      return
+    }
     setIsProcessing(true)
     setUploadStatus('processing')
     setOptimizationResults([])
+    setActiveTab('results')
     try {
       const form = new FormData()
       ;(Object.keys(categoryFiles) as (keyof typeof categoryFiles)[]).forEach((k) => {
@@ -164,6 +177,7 @@ export default function UploadPage() {
       }
     } catch (e) {
       console.error(e)
+      setUploadErrorMessage(e instanceof Error ? e.message : 'Failed to process multi-file optimization')
       setUploadStatus('error')
       setOptimizationResults([])
     } finally {
@@ -172,6 +186,7 @@ export default function UploadPage() {
   }
 
   async function onXLSX(file: File) {
+    setUploadErrorMessage(null)
     setUploadStatus('processing')
     setOptimizationResults([])
     try {
@@ -182,79 +197,32 @@ export default function UploadPage() {
       setRows(json)
       setHeaders(Object.keys(json[0] || {}))
       setUploadStatus('completed')
-      uploadFile(file)
+      setActiveTab('upload')
     } catch (error) {
+      setUploadErrorMessage('Failed to parse Excel file')
       setUploadStatus('error')
     }
   }
 
   async function fetchGSheet() {
+    setUploadErrorMessage(null)
     setUploadStatus('processing')
     setOptimizationResults([])
     try {
-      const resp = await fetch(`${apiBase}/api/upload/google-sheet`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
-        },
-        body: JSON.stringify({ url: gSheetUrl })
-      })
-      if (!resp.ok) {
-        throw new Error('Failed to import Google Sheet')
-      }
-      const result = await resp.json()
-      // Best-effort: reflect rows/headers from backend originalData if present
-      const original = result?.data?.summary?.originalData || result?.data?.originalData || []
-      if (Array.isArray(original) && original.length) {
-        setRows(original)
-        setHeaders(Object.keys(original[0] || {}))
-      }
-      if (result.success && result.data?.optimizationResults) {
-        const optResults = result.data.optimizationResults
-        setOptimizationResults(optResults)
-        try {
-          localStorage.setItem('kmrl-optimization-results', JSON.stringify(optResults))
-        } catch {}
-        // Fetch narratives
-        try {
-          const narr = await fetch(`${apiBase}/api/optimization/narrative/trains`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
-            },
-            body: JSON.stringify({ trains: optResults.map((r: any) => ({
-              trainId: r.trainId,
-              score: r.score,
-              inductionStatus: r.inductionStatus,
-              factors: {
-                fitness: r.factors?.fitness?.score ?? 0,
-                jobCard: r.factors?.jobCard?.score ?? 0,
-                branding: r.factors?.branding?.score ?? 0,
-                mileage: r.factors?.mileage?.score ?? 0,
-                cleaning: r.factors?.cleaning?.score ?? 0,
-                geometry: r.factors?.geometry?.score ?? 0,
-              },
-              ...(typeof r.stablingBay !== 'undefined' ? { stablingBay: r.stablingBay } : {}),
-              ...(typeof r.cleaningSlot !== 'undefined' ? { cleaningSlot: r.cleaningSlot } : {}),
-            })) })
-          })
-          if (narr.ok) {
-            const data = await narr.json()
-            const map: Record<string, string> = {}
-            ;(data.narratives || []).forEach((n: any) => { map[n.trainId] = n.narrative })
-            setNarratives(map)
-            try { localStorage.setItem('kmrl-optimization-narratives', JSON.stringify(map)) } catch {}
-          }
-        } catch {}
-      } else {
-        throw new Error(result.message || 'Optimization failed')
-      }
+      // Convert Google Sheet URL to a CSV export and parse locally for preview
+      const csvUrl = gSheetUrl.replace('/edit#gid=', '/export?format=csv&gid=')
+      const resp = await fetch(csvUrl)
+      if (!resp.ok) throw new Error('Failed to fetch Google Sheet')
+      const csvText = await resp.text()
+      const parse = Papa.parse(csvText, { header: true, skipEmptyLines: true })
+      const data = (parse.data || []) as Row[]
+      setRows(data)
+      setHeaders(Object.keys(data[0] || {}))
       setUploadStatus('completed')
-      setActiveTab('results')
+      setActiveTab('upload')
     } catch (e) {
       console.error(e)
+      setUploadErrorMessage('Failed to import Google Sheet')
       setUploadStatus('error')
     }
   }
@@ -325,6 +293,7 @@ export default function UploadPage() {
     } catch (error) {
       console.error('Optimization error:', error)
       setOptimizationResults([])
+      setUploadErrorMessage(error instanceof Error ? error.message : 'Optimization failed')
       setUploadStatus('error')
     } finally {
       setIsProcessing(false)
@@ -333,10 +302,21 @@ export default function UploadPage() {
 
   // Real optimization processing using Python service
   async function processOptimization(data: Row[]) {
+    setActiveTab('results')
     setIsProcessing(true)
     try {
+      // Apply inline overrides to a copy of rows
+      const effectiveRows: Row[] = data.map((row, rowIdx) => {
+        const next: Row = { ...row }
+        headers.forEach((h) => {
+          const key = `upload.${rowIdx}.${h}`
+          if (key in overrides) next[h] = overrides[key]
+        })
+        return next
+      })
+
       // Convert data to the format expected by the backend
-      const processedData = data.map((row, index) => ({
+      const processedData = effectiveRows.map((row, index) => ({
         trainId: row.trainId || row.train_id || `T${String(index + 1).padStart(3, '0')}`,
         fitnessCertificate: Number(row.fitnessCertificate) || 0,
         jobCardStatus: Number(row.jobCardStatus) || 0,
@@ -346,18 +326,26 @@ export default function UploadPage() {
         stablingGeometry: Number(row.stablingGeometry) || 0
       }))
 
-      // Send data to backend for Python optimization
+      // The backend expects a file upload under field name 'file'.
+      // Generate CSV and upload as FormData to /api/upload/data
+      const csv = Papa.unparse(processedData)
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const form = new FormData()
+      form.append('file', blob, 'optimization.csv')
+
       const response = await fetch(`${apiBase}/api/upload/data`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('kmrl-token') || ''}`
         },
-        body: JSON.stringify({ data: processedData })
+        body: form
       })
 
       if (!response.ok) {
-        throw new Error('Failed to process optimization')
+        // surface server error (e.g., Missing required columns)
+        let errMsg = 'Failed to process optimization'
+        try { const e = await response.json(); if (e?.message) errMsg = `${errMsg}: ${e.message}${e.missingColumns ? ` (${e.missingColumns.join(', ')})` : ''}` } catch {}
+        throw new Error(errMsg)
       }
 
       const result = await response.json()
@@ -502,7 +490,11 @@ export default function UploadPage() {
               <tr key={i} className="even:bg-muted/40">
                 {headers.map((h) => (
                   <td key={h} className="px-3 py-2">
-                    {String(r[h] ?? "")}
+                    <EditableValue
+                      id={`upload.${i}.${h}`}
+                      value={r[h] ?? ""}
+                      type={typeof r[h] === 'number' || (!isNaN(Number(r[h])) && r[h] !== null && r[h] !== undefined && String(r[h]).trim() !== '') ? 'number' : 'text'}
+                    />
                   </td>
                 ))}
               </tr>
@@ -583,8 +575,8 @@ export default function UploadPage() {
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground hidden md:inline">{rows.length} rows imported</span>
               <Button
-                onClick={() => setActiveTab('results')}
-                disabled={isProcessing}
+                onClick={() => { setActiveTab('results'); processOptimization(rows) }}
+                disabled={isProcessing || !rows.length}
                 className="bg-[var(--kmrl-teal)] text-white hover:opacity-90"
               >
                 Schedule Optimization
@@ -612,8 +604,8 @@ export default function UploadPage() {
                 {uploadStatus === 'error' && <AlertTriangle className="h-4 w-4" />}
                 <AlertDescription>
                   {uploadStatus === 'processing' && 'Processing your data...'}
-                  {uploadStatus === 'completed' && 'Data uploaded successfully! Running optimization...'}
-                  {uploadStatus === 'error' && 'Error processing data. Please try again.'}
+                  {uploadStatus === 'completed' && 'Optimization completed! Showing results...'}
+                  {uploadStatus === 'error' && (uploadErrorMessage || 'Error processing data. Please try again.')}
                 </AlertDescription>
               </Alert>
             )}
@@ -708,9 +700,9 @@ export default function UploadPage() {
                 {table}
                 {rows.length > 0 && (
                   <div className="flex items-center justify-end">
-                    <Button onClick={() => setActiveTab('results')} className="bg-[var(--kmrl-teal)] text-white hover:opacity-90">
-                      Schedule Optimization
-                    </Button>
+                    <Button onClick={() => { setActiveTab('results'); processOptimization(rows) }} disabled={!rows.length || isProcessing} className="bg-[var(--kmrl-teal)] text-white hover:opacity-90">
+              Schedule Optimization
+            </Button>
                   </div>
                 )}
               </CardContent>
@@ -798,10 +790,10 @@ export default function UploadPage() {
                             </div>
                             <div className="text-right">
                               <p className={`text-2xl font-bold ${color.score}`}>
-                                {result.score}
+                                <EditableValue id={`train.score.${result.trainId}`} value={Number(result.score)} type="number" min={0} max={100} step={1} />
                               </p>
                               <Progress 
-                                value={result.score} 
+                                value={Number(result.score)} 
                                 className="w-28 h-2"
                                 indicatorClassName={
                                   color.score.includes('green') ? 'bg-green-500' :

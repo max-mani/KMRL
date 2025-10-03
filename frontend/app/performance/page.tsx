@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts"
 import { TrendingUp, TrendingDown, Clock, Zap, Target, AlertCircle } from "lucide-react"
+import { EditableValue } from "@/components/manual-override"
 
 interface PerformanceMetrics {
   kpis: {
@@ -198,12 +199,12 @@ export default function PerformancePage() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-2">
-              <div className={`text-2xl font-bold ${getKpiColor(performanceData.kpis.punctuality, 99)}`}>
-                {performanceData.kpis.punctuality}%
+              <div className="flex items-center space-x-2">
+                <div className={`text-2xl font-bold ${getKpiColor(performanceData.kpis.punctuality, 99)}`}>
+                  <EditableValue id={`kpi.punctuality`} value={performanceData.kpis.punctuality} type="number" min={0} max={100} step={1} />%
+                </div>
+                {getKpiIcon(performanceData.kpis.punctuality, 99)}
               </div>
-              {getKpiIcon(performanceData.kpis.punctuality, 99)}
-            </div>
             <p className="text-xs text-muted-foreground">
               Target: 99.5% | Current: {performanceData.kpis.punctuality}%
             </p>
@@ -216,12 +217,12 @@ export default function PerformancePage() {
             <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-2">
-              <div className={`text-2xl font-bold ${getKpiColor(performanceData.kpis.energyEfficiency, 90)}`}>
-                {performanceData.kpis.energyEfficiency}%
+              <div className="flex items-center space-x-2">
+                <div className={`text-2xl font-bold ${getKpiColor(performanceData.kpis.energyEfficiency, 90)}`}>
+                  <EditableValue id={`kpi.energyEfficiency`} value={performanceData.kpis.energyEfficiency} type="number" min={0} max={100} step={1} />%
+                </div>
+                {getKpiIcon(performanceData.kpis.energyEfficiency, 90)}
               </div>
-              {getKpiIcon(performanceData.kpis.energyEfficiency, 90)}
-            </div>
             <p className="text-xs text-muted-foreground">
               Target: 90% | Current: {performanceData.kpis.energyEfficiency}%
             </p>
@@ -234,12 +235,12 @@ export default function PerformancePage() {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-2">
-              <div className={`text-2xl font-bold ${getKpiColor(performanceData.kpis.mileageBalance, 90)}`}>
-                {performanceData.kpis.mileageBalance}%
+              <div className="flex items-center space-x-2">
+                <div className={`text-2xl font-bold ${getKpiColor(performanceData.kpis.mileageBalance, 90)}`}>
+                  <EditableValue id={`kpi.mileageBalance`} value={performanceData.kpis.mileageBalance} type="number" min={0} max={100} step={1} />%
+                </div>
+                {getKpiIcon(performanceData.kpis.mileageBalance, 90)}
               </div>
-              {getKpiIcon(performanceData.kpis.mileageBalance, 90)}
-            </div>
             <p className="text-xs text-muted-foreground">
               Target: 90% | Current: {performanceData.kpis.mileageBalance}%
             </p>
@@ -252,12 +253,12 @@ export default function PerformancePage() {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-2">
-              <div className={`text-2xl font-bold ${getKpiColor(performanceData.kpis.brandingCompliance, 95)}`}>
-                {performanceData.kpis.brandingCompliance}%
+              <div className="flex items-center space-x-2">
+                <div className={`text-2xl font-bold ${getKpiColor(performanceData.kpis.brandingCompliance, 95)}`}>
+                  <EditableValue id={`kpi.brandingCompliance`} value={performanceData.kpis.brandingCompliance} type="number" min={0} max={100} step={1} />%
+                </div>
+                {getKpiIcon(performanceData.kpis.brandingCompliance, 95)}
               </div>
-              {getKpiIcon(performanceData.kpis.brandingCompliance, 95)}
-            </div>
             <p className="text-xs text-muted-foreground">
               Target: 95% | Current: {performanceData.kpis.brandingCompliance}%
             </p>
@@ -270,12 +271,12 @@ export default function PerformancePage() {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-2">
-              <div className={`text-2xl font-bold ${getKpiColor(performanceData.kpis.averageScore, 85)}`}>
-                {performanceData.kpis.averageScore}%
+              <div className="flex items-center space-x-2">
+                <div className={`text-2xl font-bold ${getKpiColor(performanceData.kpis.averageScore, 85)}`}>
+                  <EditableValue id={`kpi.averageScore`} value={performanceData.kpis.averageScore} type="number" min={0} max={100} step={1} />%
+                </div>
+                {getKpiIcon(performanceData.kpis.averageScore, 85)}
               </div>
-              {getKpiIcon(performanceData.kpis.averageScore, 85)}
-            </div>
             <p className="text-xs text-muted-foreground">
               Target: 85% | Current: {performanceData.kpis.averageScore}%
             </p>
@@ -290,7 +291,7 @@ export default function PerformancePage() {
           <CardContent>
             <div className="flex items-center space-x-2">
               <div className="text-2xl font-bold text-blue-600">
-                ₹{performanceData.kpis.shuntingCost}
+                ₹<EditableValue id={`kpi.shuntingCost`} value={performanceData.kpis.shuntingCost} type="number" min={0} step={1} />
               </div>
               <TrendingDown className="h-4 w-4 text-green-600" />
             </div>

@@ -23,6 +23,7 @@ import {
   Download,
   RefreshCw
 } from "lucide-react"
+import { EditableValue, useManualOverride } from "@/components/manual-override"
 import {
   BarChart,
   Bar,
@@ -107,6 +108,7 @@ export default function DashboardPage() {
   const [results, setResults] = useState<Result[]>([])
   const [narratives, setNarratives] = useState<Record<string, string>>({})
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
+  const { overrides } = useManualOverride()
 
   useEffect(() => {
     try {
@@ -216,7 +218,11 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-green-600">Running</p>
-                      <p className="text-2xl font-bold text-green-700">{results.filter(r => Number(r.score) >= 65).length}</p>
+                      <p className="text-2xl font-bold text-green-700">{results.filter(r => {
+                        const ov = overrides[`train.score.${r.trainId}`]
+                        const score = Number(typeof ov !== 'undefined' ? ov : r.score)
+                        return score >= 65
+                      }).length}</p>
                     </div>
                     <Train className="h-8 w-8 text-green-600" />
                   </div>
@@ -227,7 +233,11 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-yellow-600">Standby</p>
-                      <p className="text-2xl font-bold text-yellow-700">{results.filter(r => Number(r.score) >= 50 && Number(r.score) < 65).length}</p>
+                      <p className="text-2xl font-bold text-yellow-700">{results.filter(r => {
+                        const ov = overrides[`train.score.${r.trainId}`]
+                        const score = Number(typeof ov !== 'undefined' ? ov : r.score)
+                        return score >= 50 && score < 65
+                      }).length}</p>
                     </div>
                     <Clock className="h-8 w-8 text-yellow-600" />
                   </div>
@@ -238,7 +248,11 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-red-600">Maintenance</p>
-                      <p className="text-2xl font-bold text-red-700">{results.filter(r => Number(r.score) < 50).length}</p>
+                      <p className="text-2xl font-bold text-red-700">{results.filter(r => {
+                        const ov = overrides[`train.score.${r.trainId}`]
+                        const score = Number(typeof ov !== 'undefined' ? ov : r.score)
+                        return score < 50
+                      }).length}</p>
                     </div>
                     <AlertTriangle className="h-8 w-8 text-red-600" />
                   </div>
@@ -303,7 +317,11 @@ export default function DashboardPage() {
               <CardContent className="space-y-3">
                 {results
                   .slice()
-                  .sort((a, b) => b.score - a.score)
+                  .sort((a, b) => {
+                    const sa = Number(typeof overrides[`train.score.${a.trainId}`] !== 'undefined' ? overrides[`train.score.${a.trainId}`] : a.score)
+                    const sb = Number(typeof overrides[`train.score.${b.trainId}`] !== 'undefined' ? overrides[`train.score.${b.trainId}`] : b.score)
+                    return sb - sa
+                  })
                   .map((train, index) => (
                   <div key={train.trainId} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
@@ -316,11 +334,13 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-2xl font-bold ${getScoreTextClass(train.score)}`}>{train.score}</p>
+                      <p className={`text-2xl font-bold ${getScoreTextClass(Number(typeof overrides[`train.score.${train.trainId}`] !== 'undefined' ? overrides[`train.score.${train.trainId}`] : train.score))}`}>
+                        <EditableValue id={`train.score.${train.trainId}`} value={Number(train.score)} type="number" min={0} max={100} step={1} />
+                      </p>
                       <Progress 
-                        value={train.score} 
+                        value={Number(typeof overrides[`train.score.${train.trainId}`] !== 'undefined' ? overrides[`train.score.${train.trainId}`] : train.score)} 
                         className="w-24 h-2" 
-                        indicatorClassName={getBarClass(train.score)}
+                        indicatorClassName={getBarClass(Number(typeof overrides[`train.score.${train.trainId}`] !== 'undefined' ? overrides[`train.score.${train.trainId}`] : train.score))}
                         trackClassName="bg-muted" 
                       />
                     </div>

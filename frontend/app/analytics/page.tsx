@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area } from "recharts"
 import { TrendingUp, TrendingDown, Clock, Zap, Target, AlertCircle, Brain, Lightbulb, DollarSign, Activity, BarChart3, PieChart as PieChartIcon } from "lucide-react"
+import { EditableValue } from "@/components/manual-override"
 
 interface AnalyticsData {
   historicalData: {
@@ -277,7 +278,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.historicalData.averageScore, 85)}`}>
-                  {analyticsData.historicalData.averageScore}%
+                  <EditableValue id={`historical.averageScore`} value={analyticsData.historicalData.averageScore} type="number" min={0} max={100} step={1} />%
                 </div>
                 {getKpiIcon(analyticsData.historicalData.averageScore, 85)}
               </div>
@@ -298,7 +299,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.historicalData.punctuality, 99)}`}>
-                  {analyticsData.historicalData.punctuality}%
+                  <EditableValue id={`historical.punctuality`} value={analyticsData.historicalData.punctuality} type="number" min={0} max={100} step={1} />%
                 </div>
                 {getKpiIcon(analyticsData.historicalData.punctuality, 99)}
               </div>
@@ -319,7 +320,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.historicalData.energyEfficiency, 90)}`}>
-                  {analyticsData.historicalData.energyEfficiency}%
+                  <EditableValue id={`historical.energyEfficiency`} value={analyticsData.historicalData.energyEfficiency} type="number" min={0} max={100} step={1} />%
                 </div>
                 {getKpiIcon(analyticsData.historicalData.energyEfficiency, 90)}
               </div>
@@ -340,7 +341,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className="text-2xl font-bold text-blue-600">
-                  ₹{analyticsData.historicalData.shuntingCost}
+                  ₹<EditableValue id={`historical.shuntingCost`} value={analyticsData.historicalData.shuntingCost} type="number" min={0} step={1} />
                 </div>
                 {getChangeIcon(analyticsData.historicalData.changes.costChange)}
               </div>
@@ -641,7 +642,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.systemPerformance.punctuality, 99)}`}>
-                  {analyticsData.systemPerformance.punctuality}%
+                  <EditableValue id={`system.punctuality`} value={analyticsData.systemPerformance.punctuality} type="number" min={0} max={100} step={1} />%
                 </div>
                 {getKpiIcon(analyticsData.systemPerformance.punctuality, 99)}
               </div>
@@ -663,7 +664,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.systemPerformance.energyEfficiency, 90)}`}>
-                  {analyticsData.systemPerformance.energyEfficiency}%
+                  <EditableValue id={`system.energyEfficiency`} value={analyticsData.systemPerformance.energyEfficiency} type="number" min={0} max={100} step={1} />%
                 </div>
                 {getKpiIcon(analyticsData.systemPerformance.energyEfficiency, 90)}
               </div>
@@ -685,7 +686,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.systemPerformance.mileageBalance, 90)}`}>
-                  {analyticsData.systemPerformance.mileageBalance}%
+                  <EditableValue id={`system.mileageBalance`} value={analyticsData.systemPerformance.mileageBalance} type="number" min={0} max={100} step={1} />%
                 </div>
                 {getKpiIcon(analyticsData.systemPerformance.mileageBalance, 90)}
               </div>
@@ -707,7 +708,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.systemPerformance.brandingCompliance, 95)}`}>
-                  {analyticsData.systemPerformance.brandingCompliance}%
+                  <EditableValue id={`system.brandingCompliance`} value={analyticsData.systemPerformance.brandingCompliance} type="number" min={0} max={100} step={1} />%
                 </div>
                 {getKpiIcon(analyticsData.systemPerformance.brandingCompliance, 95)}
               </div>
@@ -729,7 +730,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.systemPerformance.averageScore, 85)}`}>
-                  {analyticsData.systemPerformance.averageScore}%
+                  <EditableValue id={`system.averageScore`} value={analyticsData.systemPerformance.averageScore} type="number" min={0} max={100} step={1} />%
                 </div>
                 {getKpiIcon(analyticsData.systemPerformance.averageScore, 85)}
               </div>
@@ -751,7 +752,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className="text-2xl font-bold text-blue-600">
-                  ₹{analyticsData.systemPerformance.shuntingCost}
+                  ₹<EditableValue id={`system.shuntingCost`} value={analyticsData.systemPerformance.shuntingCost} type="number" min={0} step={1} />
                 </div>
                 <TrendingDown className="h-4 w-4 text-green-600" />
               </div>

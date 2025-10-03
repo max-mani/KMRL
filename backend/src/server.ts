@@ -19,6 +19,7 @@ import { fleetRoutes } from './routes/fleet';
 import { learningRoutes } from './routes/learning';
 import { mobileAlertsRoutes } from './routes/mobileAlerts';
 import { chatRoutes } from './routes/chat';
+import { overridesRoutes } from './routes/overrides';
 import performanceRoutes from './routes/performance';
 
 // Load environment variables
@@ -63,7 +64,7 @@ app.use(cors({
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With']
 }));
 
@@ -111,6 +112,7 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/digital-twin', digitalTwinRoutes);
 app.use('/api/fleet', fleetRoutes);
+app.use('/api/overrides', overridesRoutes);
 app.use('/api/learning', learningRoutes);
 app.use('/api/mobile-alerts', mobileAlertsRoutes);
 app.use('/api/chat', chatRoutes);

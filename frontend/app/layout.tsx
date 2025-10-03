@@ -8,6 +8,7 @@ import { NavBar } from "@/components/nav-bar"
 import { Footer } from "@/components/footer"
 import ChatBot from "@/components/chatbot"
 import { Suspense } from "react"
+import { ManualOverrideProvider } from "@/components/manual-override"
 
 export const metadata: Metadata = {
   title: "KMRL Fleet Optimization",
@@ -28,13 +29,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
-        <div className="min-h-dvh flex flex-col bg-background text-foreground">
-          <Suspense fallback={<div>Loading...</div>}>
-            <NavBar />
-            <main className="flex-1">{children}</main>
-            <Footer />
-          </Suspense>
-        </div>
+        <ManualOverrideProvider>
+          <div className="min-h-dvh flex flex-col bg-background text-foreground">
+            <Suspense fallback={<div>Loading...</div>}>
+              <NavBar />
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </Suspense>
+          </div>
+        </ManualOverrideProvider>
         <ChatBot />
         <div suppressHydrationWarning>
           {typeof window !== 'undefined' ? (
