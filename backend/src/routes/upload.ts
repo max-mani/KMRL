@@ -17,9 +17,16 @@ import { uploadBufferToFirebase, isFirebaseConfigured } from '../utils/firebase'
 const router = express.Router();
 
 // Configure multer for file uploads
+const ensureDirectoryExists = (dirPath: string) => {
+  try {
+    fs.mkdirSync(dirPath, { recursive: true });
+  } catch {}
+};
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, process.env.UPLOAD_PATH || './uploads');
+    const dest = process.env.UPLOAD_PATH || './uploads';
+    ensureDirectoryExists(dest);
+    cb(null, dest);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -360,7 +367,9 @@ const parseBufferToRows = (buffer: Buffer, originalName: string): any[] => {
     const parsed = Papa.parse(csvContent, { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim() });
     return Array.isArray(parsed.data) ? parsed.data as any[] : [];
   }
-  const tmpFile = path.join(process.cwd(), 'uploads', `tmp-${Date.now()}-${Math.round(Math.random()*1e9)}.xlsx`);
+  const uploadDir = path.join(process.cwd(), 'uploads');
+  ensureDirectoryExists(uploadDir);
+  const tmpFile = path.join(uploadDir, `tmp-${Date.now()}-${Math.round(Math.random()*1e9)}.xlsx`);
   try {
     fs.writeFileSync(tmpFile, buffer);
     const wb = XLSX.readFile(tmpFile);
