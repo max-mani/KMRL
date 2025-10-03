@@ -53,7 +53,9 @@ app.use(cors({
     }
     
     // In production, check specific origins
-    const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || ['https://your-netlify-app.netlify.app'];
+    const allowedOrigins = (process.env.CORS_ORIGIN?.split(',') || [
+      'https://kmrl-fleet-optimization.netlify.app'
+    ]).map(o => o.trim());
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
@@ -62,8 +64,11 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With']
 }));
+
+// Ensure preflight requests are handled for all routes
+app.options('*', cors());
 
 // Rate limiting
 const limiter = rateLimit({
