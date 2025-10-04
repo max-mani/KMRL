@@ -159,6 +159,12 @@ LOG_LEVEL=info
 
 # Gemini (Chat Assistant)
 GEMINI_API_KEY=your_google_gemini_api_key
+
+# WhatsApp (Twilio)
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+# Sender must be in the exact format below and enabled for WhatsApp in Twilio
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
 ```
 
 ## Data Models

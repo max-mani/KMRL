@@ -3,6 +3,8 @@ import { MobileAlertsService, MobileAlert, AlertSubscription } from '../services
 import { authenticate } from '../middleware/auth';
 import { AuthRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { User } from '../models/User';
+import { formatAlertForWhatsApp, sendWhatsAppMessage } from '../services/whatsappService';
 
 const router = express.Router();
 
@@ -304,3 +306,57 @@ router.get('/history', authenticate, async (req: AuthRequest, res) => {
 });
 
 export { router as mobileAlertsRoutes };
+
+// POST /api/mobile-alerts/send-whatsapp - Send active alerts to supervisors via WhatsApp
+router.post('/send-whatsapp', authenticate, async (req: AuthRequest, res) => {
+  try {
+    // Optional: allow only admins to trigger broadcast
+    if (req.user!.role !== 'admin' && req.user!.role !== 'supervisor') {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const alerts = await MobileAlertsService.generateActiveAlerts();
+    if (alerts.length === 0) {
+      return res.json({ success: true, data: { sent: 0, recipients: 0, message: 'No active alerts to send' } });
+    }
+
+    const supervisors = await User.find({ role: 'supervisor', isActive: true, whatsappOptIn: true, phoneNumber: { $exists: true, $ne: '' } });
+    const recipients = supervisors.map(s => ({ id: s._id.toString(), phone: s.phoneNumber as string }));
+
+    let sentCount = 0;
+    const results: Array<{ recipient: string; success: boolean; sid?: string; error?: string }> = [];
+    const firstFew = alerts.slice(0, 5); // limit content length
+    const summaryLine = alerts.length > 5 ? `\n...and ${alerts.length - 5} more alerts.` : '';
+    const body = firstFew.map(a => formatAlertForWhatsApp(a)).join('\n\n') + summaryLine;
+
+    for (const r of recipients) {
+      const result = await sendWhatsAppMessage(r.phone, body);
+      if (result.success) sentCount++;
+      results.push({ recipient: r.phone, success: result.success, sid: result.sid, error: result.error });
+    }
+
+    res.json({ success: true, data: { sent: sentCount, recipients: recipients.length, results } });
+  } catch (error) {
+    logger.error('Send WhatsApp alerts error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// POST /api/mobile-alerts/test-whatsapp - Send a test WhatsApp message to the authenticated user's phone
+router.post('/test-whatsapp', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const { phoneNumber } = req.user!;
+    if (!phoneNumber) {
+      return res.status(400).json({ success: false, message: 'No phoneNumber on profile' });
+    }
+
+    const result = await sendWhatsAppMessage(phoneNumber as string, 'KMRL Test: WhatsApp notifications are configured successfully.');
+    if (!result.success) {
+      return res.status(502).json({ success: false, message: result.error || 'Failed to send' });
+    }
+    res.json({ success: true, data: { sid: result.sid, to: phoneNumber } });
+  } catch (error) {
+    logger.error('Test WhatsApp send error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});

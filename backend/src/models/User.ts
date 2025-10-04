@@ -11,6 +11,8 @@ export interface IUser extends Document {
   lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
+  phoneNumber?: string;
+  whatsappOptIn?: boolean;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -51,6 +53,14 @@ const UserSchema = new Schema<IUser>({
   },
   lastLogin: {
     type: Date
+  },
+  phoneNumber: {
+    type: String,
+    trim: true
+  },
+  whatsappOptIn: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

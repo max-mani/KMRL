@@ -14,6 +14,8 @@ export default function SignupPage() {
   const [password, setPassword] = useState("")
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [whatsappOptIn, setWhatsappOptIn] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
@@ -34,7 +36,9 @@ export default function SignupPage() {
           email,
           password,
           firstName,
-          lastName
+          lastName,
+          phoneNumber: phoneNumber || undefined,
+          whatsappOptIn
         })
       })
 
@@ -89,6 +93,20 @@ export default function SignupPage() {
                 onChange={(e) => setLastName(e.target.value)} 
                 required 
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone (WhatsApp, E.164 e.g., +918971234567)</Label>
+              <Input 
+                id="phone" 
+                type="tel" 
+                value={phoneNumber} 
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="+91XXXXXXXXXX"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input id="whatsappOptIn" type="checkbox" checked={whatsappOptIn} onChange={(e) => setWhatsappOptIn(e.target.checked)} />
+              <Label htmlFor="whatsappOptIn">Receive critical alerts via WhatsApp</Label>
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

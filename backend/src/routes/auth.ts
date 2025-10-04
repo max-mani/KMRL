@@ -12,7 +12,9 @@ const signupSchema = Joi.object({
   password: Joi.string().min(6).required(),
   firstName: Joi.string().max(50).required(),
   lastName: Joi.string().max(50).required(),
-  role: Joi.string().valid('user', 'admin', 'supervisor').default('user')
+  role: Joi.string().valid('user', 'admin', 'supervisor').default('user'),
+  phoneNumber: Joi.string().pattern(/^\+\d{6,15}$/).optional(),
+  whatsappOptIn: Joi.boolean().optional()
 });
 
 const loginSchema = Joi.object({
@@ -44,7 +46,7 @@ router.post('/signup', async (req, res) => {
       });
     }
 
-    const { email, password, firstName, lastName, role } = value;
+    const { email, password, firstName, lastName, role, phoneNumber, whatsappOptIn } = value;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -61,7 +63,9 @@ router.post('/signup', async (req, res) => {
       password,
       firstName,
       lastName,
-      role
+      role,
+      phoneNumber,
+      whatsappOptIn: !!whatsappOptIn
     });
 
     await user.save();
@@ -80,7 +84,9 @@ router.post('/signup', async (req, res) => {
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
-          role: user.role
+          role: user.role,
+          phoneNumber: user.phoneNumber,
+          whatsappOptIn: user.whatsappOptIn
         },
         token
       }

@@ -50,6 +50,7 @@ interface InsightMetrics {
 
 export default function InsightsPage() {
   const [hasUser, setHasUser] = useState<boolean>(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
   const [hasResults, setHasResults] = useState<boolean>(true)
   const [insights, setInsights] = useState<CriticalInsight[]>([])
   const [metrics, setMetrics] = useState<InsightMetrics>({
@@ -62,12 +63,20 @@ export default function InsightsPage() {
     pendingCount: 0
   })
   const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [sendMsg, setSendMsg] = useState<string | null>(null)
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
 
   useEffect(() => {
     try {
       const user = localStorage.getItem('kmrl-user')
       setHasUser(!!user)
+      if (user) {
+        try {
+          const parsed = JSON.parse(user)
+          setUserRole(parsed?.role || null)
+        } catch {}
+      }
       // Don't require optimization results for insights data - API has its own data
       setHasResults(true)
     } catch {}
@@ -80,7 +89,7 @@ export default function InsightsPage() {
           return
         }
 
-        const apiUrl = 'http://localhost:3001/api/performance/insights'
+        const apiUrl = `${apiBase}/api/performance/insights`
         console.log('Insights API URL:', apiUrl)
         const response = await fetch(apiUrl, {
           headers: {
@@ -240,6 +249,80 @@ export default function InsightsPage() {
         <p className="text-muted-foreground">
           AI-powered insights and recommendations for fleet optimization and operational excellence
         </p>
+        <div className="mt-4 flex items-center gap-3 flex-wrap">
+          {(userRole === 'admin' || userRole === 'supervisor') ? (
+            <Button
+              className="bg-[var(--kmrl-teal)] hover:opacity-90"
+              disabled={sending}
+              onClick={async () => {
+                setSendMsg(null)
+                setSending(true)
+                try {
+                  const token = localStorage.getItem('kmrl-token')
+                  if (!token) {
+                    setSendMsg('Please login first')
+                    return
+                  }
+                  const resp = await fetch(`${apiBase}/api/mobile-alerts/send-whatsapp`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                  })
+                  const data = await resp.json()
+                  if (resp.ok && data.success) {
+                    setSendMsg(`Sent to ${data.data.recipients} supervisor(s). Successful: ${data.data.sent}.`)
+                  } else if (resp.status === 403) {
+                    setSendMsg(data.message || 'Forbidden: only admin/supervisor can broadcast')
+                  } else {
+                    setSendMsg(data.message || 'Failed to send WhatsApp messages')
+                  }
+                } catch (e) {
+                  setSendMsg('Network error while sending WhatsApp messages')
+                } finally {
+                  setSending(false)
+                }
+              }}
+            >
+              {sending ? 'Sending WhatsApp...' : 'Send WhatsApp to Supervisor(s)'}
+            </Button>
+          ) : (
+            <Button
+              className="bg-[var(--kmrl-teal)] hover:opacity-90"
+              disabled={sending}
+              onClick={async () => {
+                setSendMsg(null)
+                setSending(true)
+                try {
+                  const token = localStorage.getItem('kmrl-token')
+                  if (!token) {
+                    setSendMsg('Please login first')
+                    return
+                  }
+                  const resp = await fetch(`${apiBase}/api/mobile-alerts/test-whatsapp`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                  })
+                  const data = await resp.json()
+                  if (resp.ok && data.success) {
+                    setSendMsg(`Test message sent (SID: ${data.data.sid}). Check your WhatsApp.`)
+                  } else if (resp.status === 403) {
+                    setSendMsg(data.message || 'Forbidden')
+                  } else {
+                    setSendMsg(data.message || 'Failed to send test WhatsApp message')
+                  }
+                } catch (e) {
+                  setSendMsg('Network error while sending test WhatsApp message')
+                } finally {
+                  setSending(false)
+                }
+              }}
+            >
+              {sending ? 'Sending Test WhatsApp...' : 'Send Test WhatsApp to Me'}
+            </Button>
+          )}
+          {sendMsg && (
+            <span className="text-sm text-muted-foreground">{sendMsg}</span>
+          )}
+        </div>
       </div>
 
       {/* Metrics Overview */}
