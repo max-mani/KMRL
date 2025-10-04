@@ -8,7 +8,15 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area } from "recharts"
 import { TrendingUp, TrendingDown, Clock, Zap, Target, AlertCircle, Brain, Lightbulb, DollarSign, Activity, BarChart3, PieChart as PieChartIcon } from "lucide-react"
-import { EditableValue } from "@/components/manual-override"
+
+interface PerformanceAlert {
+  id: string
+  type: 'critical' | 'warning'
+  title?: string
+  message: string
+  timestamp: string
+  resolved: boolean
+}
 
 interface AnalyticsData {
   historicalData: {
@@ -62,6 +70,7 @@ interface AnalyticsData {
   }
   fleetDistribution: Array<{ name: string; value: number; color: string }>
   energyConsumption: Array<{ hour: string; consumption: number }>
+  performanceAlerts: PerformanceAlert[]
 }
 
 export default function AnalyticsPage() {
@@ -104,7 +113,8 @@ export default function AnalyticsPage() {
       brandingCompliance: []
     },
     fleetDistribution: [],
-    energyConsumption: []
+    energyConsumption: [],
+    performanceAlerts: []
   })
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('all')
@@ -254,7 +264,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <GATracker page="analytics" />
+      <GATracker page="insights" />
       
       {/* Header */}
       <div className="mb-8">
@@ -278,7 +288,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.historicalData.averageScore, 85)}`}>
-                  <EditableValue id={`historical.averageScore`} value={analyticsData.historicalData.averageScore} type="number" min={0} max={100} step={1} />%
+                  {analyticsData.historicalData.averageScore}%
                 </div>
                 {getKpiIcon(analyticsData.historicalData.averageScore, 85)}
               </div>
@@ -299,7 +309,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.historicalData.punctuality, 99)}`}>
-                  <EditableValue id={`historical.punctuality`} value={analyticsData.historicalData.punctuality} type="number" min={0} max={100} step={1} />%
+                  {analyticsData.historicalData.punctuality}%
                 </div>
                 {getKpiIcon(analyticsData.historicalData.punctuality, 99)}
               </div>
@@ -320,7 +330,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.historicalData.energyEfficiency, 90)}`}>
-                  <EditableValue id={`historical.energyEfficiency`} value={analyticsData.historicalData.energyEfficiency} type="number" min={0} max={100} step={1} />%
+                  {analyticsData.historicalData.energyEfficiency}%
                 </div>
                 {getKpiIcon(analyticsData.historicalData.energyEfficiency, 90)}
               </div>
@@ -341,7 +351,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className="text-2xl font-bold text-blue-600">
-                  ₹<EditableValue id={`historical.shuntingCost`} value={analyticsData.historicalData.shuntingCost} type="number" min={0} step={1} />
+                  ₹{analyticsData.historicalData.shuntingCost}
                 </div>
                 {getChangeIcon(analyticsData.historicalData.changes.costChange)}
               </div>
@@ -642,7 +652,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.systemPerformance.punctuality, 99)}`}>
-                  <EditableValue id={`system.punctuality`} value={analyticsData.systemPerformance.punctuality} type="number" min={0} max={100} step={1} />%
+                  {analyticsData.systemPerformance.punctuality}%
                 </div>
                 {getKpiIcon(analyticsData.systemPerformance.punctuality, 99)}
               </div>
@@ -664,7 +674,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.systemPerformance.energyEfficiency, 90)}`}>
-                  <EditableValue id={`system.energyEfficiency`} value={analyticsData.systemPerformance.energyEfficiency} type="number" min={0} max={100} step={1} />%
+                  {analyticsData.systemPerformance.energyEfficiency}%
                 </div>
                 {getKpiIcon(analyticsData.systemPerformance.energyEfficiency, 90)}
               </div>
@@ -686,7 +696,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.systemPerformance.mileageBalance, 90)}`}>
-                  <EditableValue id={`system.mileageBalance`} value={analyticsData.systemPerformance.mileageBalance} type="number" min={0} max={100} step={1} />%
+                  {analyticsData.systemPerformance.mileageBalance}%
                 </div>
                 {getKpiIcon(analyticsData.systemPerformance.mileageBalance, 90)}
               </div>
@@ -708,7 +718,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.systemPerformance.brandingCompliance, 95)}`}>
-                  <EditableValue id={`system.brandingCompliance`} value={analyticsData.systemPerformance.brandingCompliance} type="number" min={0} max={100} step={1} />%
+                  {analyticsData.systemPerformance.brandingCompliance}%
                 </div>
                 {getKpiIcon(analyticsData.systemPerformance.brandingCompliance, 95)}
               </div>
@@ -730,7 +740,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className={`text-2xl font-bold ${getKpiColor(analyticsData.systemPerformance.averageScore, 85)}`}>
-                  <EditableValue id={`system.averageScore`} value={analyticsData.systemPerformance.averageScore} type="number" min={0} max={100} step={1} />%
+                  {analyticsData.systemPerformance.averageScore}%
                 </div>
                 {getKpiIcon(analyticsData.systemPerformance.averageScore, 85)}
               </div>
@@ -752,7 +762,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <div className="text-2xl font-bold text-blue-600">
-                  ₹<EditableValue id={`system.shuntingCost`} value={analyticsData.systemPerformance.shuntingCost} type="number" min={0} step={1} />
+                  ₹{analyticsData.systemPerformance.shuntingCost}
                 </div>
                 <TrendingDown className="h-4 w-4 text-green-600" />
               </div>
@@ -781,16 +791,16 @@ export default function AnalyticsPage() {
                   Critical Alerts
                 </h4>
                  {analyticsData.performanceAlerts
-                   .filter(alert => alert.type === 'critical')
+                   .filter((alert: PerformanceAlert) => alert.type === 'critical')
                    .slice(0, 3)
-                   .map((alert) => (
+                   .map((alert: PerformanceAlert) => (
                      <div key={alert.id} className="p-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950">
                        <div className="flex items-start justify-between">
                          <div className="flex-1">
                            <h5 className="font-medium text-red-800 dark:text-red-200 text-sm">{alert.title || 'Critical Alert'}</h5>
                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">{alert.message}</p>
                            <div className="flex items-center gap-2 mt-2">
-                             <Badge size="sm" className="bg-red-100 text-red-800">
+                             <Badge className="bg-red-100 text-red-800">
                                Critical
                              </Badge>
                              <span className="text-xs text-red-600 dark:text-red-400">
@@ -810,16 +820,16 @@ export default function AnalyticsPage() {
                   Warning Alerts
                 </h4>
                  {analyticsData.performanceAlerts
-                   .filter(alert => alert.type === 'warning')
+                   .filter((alert: PerformanceAlert) => alert.type === 'warning')
                    .slice(0, 3)
-                   .map((alert) => (
+                   .map((alert: PerformanceAlert) => (
                      <div key={alert.id} className="p-3 rounded-lg border border-yellow-200 bg-yellow-50 dark:bg-yellow-950">
                        <div className="flex items-start justify-between">
                          <div className="flex-1">
                            <h5 className="font-medium text-yellow-800 dark:text-yellow-200 text-sm">{alert.title || 'Warning Alert'}</h5>
                            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">{alert.message}</p>
                            <div className="flex items-center gap-2 mt-2">
-                             <Badge size="sm" className="bg-yellow-100 text-yellow-800">
+                             <Badge className="bg-yellow-100 text-yellow-800">
                                Warning
                              </Badge>
                              <span className="text-xs text-yellow-600 dark:text-yellow-400">
@@ -841,9 +851,9 @@ export default function AnalyticsPage() {
                   <span className="font-medium text-blue-800 dark:text-blue-200">Alert Summary</span>
                 </div>
                  <div className="flex items-center gap-4 text-sm text-blue-600 dark:text-blue-400">
-                   <span>{analyticsData.performanceAlerts.filter(a => a.type === 'critical').length} Critical</span>
-                   <span>{analyticsData.performanceAlerts.filter(a => a.type === 'warning').length} Warnings</span>
-                   <span>{analyticsData.performanceAlerts.filter(a => !a.resolved).length} Active</span>
+                   <span>{analyticsData.performanceAlerts.filter((a: PerformanceAlert) => a.type === 'critical').length} Critical</span>
+                   <span>{analyticsData.performanceAlerts.filter((a: PerformanceAlert) => a.type === 'warning').length} Warnings</span>
+                   <span>{analyticsData.performanceAlerts.filter((a: PerformanceAlert) => !a.resolved).length} Active</span>
                  </div>
               </div>
             </div>

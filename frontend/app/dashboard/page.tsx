@@ -21,9 +21,14 @@ import {
   TrendingDown,
   Upload,
   Download,
-  RefreshCw
+  RefreshCw,
+  MapPin,
+  Wrench,
+  Shield,
+  Calendar
 } from "lucide-react"
 import { EditableValue, useManualOverride } from "@/components/manual-override"
+import { GeminiService } from "@/lib/gemini-service"
 import {
   BarChart,
   Bar,
@@ -107,6 +112,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [results, setResults] = useState<Result[]>([])
   const [narratives, setNarratives] = useState<Record<string, string>>({})
+  const [calculatedData, setCalculatedData] = useState<Record<string, { depot: string; cleaningSlot: number; stablingPosition: string }>>({})
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
   const { overrides } = useManualOverride()
 
@@ -157,6 +163,41 @@ export default function DashboardPage() {
       } catch {}
     })()
   }, [results])
+
+  // Calculate depot, cleaning slot, and stabling position using Gemini API
+  useEffect(() => {
+    (async () => {
+      if (!results.length) return
+      
+      try {
+        const geminiResults = await GeminiService.calculateTrainData(results)
+        const dataMap: Record<string, { depot: string; cleaningSlot: number; stablingPosition: string }> = {}
+        
+        results.forEach((train, index) => {
+          const calculated = geminiResults[index] || {
+            depot: 'Muttom Depot',
+            cleaningSlot: train.score >= 80 ? (index % 3) + 1 : train.score >= 60 ? (index % 3) + 4 : (index % 2) + 7,
+            stablingPosition: `Track-${train.score >= 70 ? (index % 10) + 1 : (index % 10) + 11}`
+          }
+          dataMap[train.trainId] = calculated
+        })
+        
+        setCalculatedData(dataMap)
+      } catch (error) {
+        console.error('Error calculating train data:', error)
+        // Fallback to default values
+        const fallbackData: Record<string, { depot: string; cleaningSlot: number; stablingPosition: string }> = {}
+        results.forEach((train, index) => {
+          fallbackData[train.trainId] = {
+            depot: 'Muttom Depot',
+            cleaningSlot: train.score >= 80 ? (index % 3) + 1 : train.score >= 60 ? (index % 3) + 4 : (index % 2) + 7,
+            stablingPosition: `Track-${train.score >= 70 ? (index % 10) + 1 : (index % 10) + 11}`
+          }
+        })
+        setCalculatedData(fallbackData)
+      }
+    })()
+  }, [results])
   const getScoreTextClass = (value: number) => {
     if (value >= 65) return 'text-green-600'
     if (value >= 50) return 'text-yellow-600'
@@ -181,10 +222,10 @@ export default function DashboardPage() {
         <div className="mb-6 flex items-center justify-between">
           <div>
           <h1 className="text-2xl md:text-3xl font-semibold text-balance" style={{ color: "var(--kmrl-teal)" }}>
-              KMRL Fleet Optimization Dashboard
+              KMRL Fleet Status Dashboard
           </h1>
           <p className="text-sm text-muted-foreground">
-            Monitor Fleet Status, Maintenance, Performance, Critical Insights, and Historical Data.
+            Monitor current induction list, train rankings, maintenance status, and operational performance.
           </p>
           </div>
           <div className="flex gap-2">
@@ -312,40 +353,123 @@ export default function DashboardPage() {
             {results.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Train Rankings (0-100 Scale)</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Train className="h-5 w-5" />
+                  Current Induction List (Train Rank List)
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {results
-                  .slice()
-                  .sort((a, b) => {
-                    const sa = Number(typeof overrides[`train.score.${a.trainId}`] !== 'undefined' ? overrides[`train.score.${a.trainId}`] : a.score)
-                    const sb = Number(typeof overrides[`train.score.${b.trainId}`] !== 'undefined' ? overrides[`train.score.${b.trainId}`] : b.score)
-                    return sb - sa
-                  })
-                  .map((train, index) => (
-                  <div key={train.trainId} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Badge variant="outline">#{index + 1}</Badge>
-                      <div>
-                        <p className="font-semibold">{train.trainId}</p>
-                        {narratives[train.trainId] && (
-                          <p className="text-sm text-muted-foreground">{narratives[train.trainId]}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-2xl font-bold ${getScoreTextClass(Number(typeof overrides[`train.score.${train.trainId}`] !== 'undefined' ? overrides[`train.score.${train.trainId}`] : train.score))}`}>
-                        <EditableValue id={`train.score.${train.trainId}`} value={Number(train.score)} type="number" min={0} max={100} step={1} />
-                      </p>
-                      <Progress 
-                        value={Number(typeof overrides[`train.score.${train.trainId}`] !== 'undefined' ? overrides[`train.score.${train.trainId}`] : train.score)} 
-                        className="w-24 h-2" 
-                        indicatorClassName={getBarClass(Number(typeof overrides[`train.score.${train.trainId}`] !== 'undefined' ? overrides[`train.score.${train.trainId}`] : train.score))}
-                        trackClassName="bg-muted" 
-                      />
-                    </div>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-3 font-semibold">Rank</th>
+                        <th className="text-left p-3 font-semibold">Train ID</th>
+                        <th className="text-left p-3 font-semibold">Status</th>
+                        <th className="text-left p-3 font-semibold">Failure Risk</th>
+                        <th className="text-left p-3 font-semibold">Depot</th>
+                        <th className="text-left p-3 font-semibold">Cleaning Slot</th>
+                        <th className="text-left p-3 font-semibold">Stabling Position</th>
+                        <th className="text-left p-3 font-semibold">Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {results
+                        .slice()
+                        .sort((a, b) => {
+                          const sa = Number(typeof overrides[`train.score.${a.trainId}`] !== 'undefined' ? overrides[`train.score.${a.trainId}`] : a.score)
+                          const sb = Number(typeof overrides[`train.score.${b.trainId}`] !== 'undefined' ? overrides[`train.score.${b.trainId}`] : b.score)
+                          return sb - sa
+                        })
+                        .map((train, index) => {
+                          const score = Number(typeof overrides[`train.score.${train.trainId}`] !== 'undefined' ? overrides[`train.score.${train.trainId}`] : train.score)
+                          const status = score >= 65 ? 'running' : score >= 50 ? 'standby' : 'maintenance'
+                          const failureRisk = score >= 80 ? 'Low' : score >= 60 ? 'Medium' : 'High'
+                          const calculated = calculatedData[train.trainId] || {
+                            depot: 'Muttom Depot',
+                            cleaningSlot: score >= 80 ? (index % 3) + 1 : score >= 60 ? (index % 3) + 4 : (index % 2) + 7,
+                            stablingPosition: `Track-${score >= 70 ? (index % 10) + 1 : (index % 10) + 11}`
+                          }
+                          const depot = calculated.depot
+                          const cleaningSlot = calculated.cleaningSlot
+                          const stablingPosition = calculated.stablingPosition
+                          
+                          return (
+                            <tr key={train.trainId} className="border-b hover:bg-muted/50">
+                              <td className="p-3">
+                                <Badge variant="outline" className="font-mono">#{index + 1}</Badge>
+                              </td>
+                              <td className="p-3 font-semibold">{train.trainId}</td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  {status === 'running' && <CheckCircle className="h-4 w-4 text-green-600" />}
+                                  {status === 'standby' && <Clock className="h-4 w-4 text-yellow-600" />}
+                                  {status === 'maintenance' && <Wrench className="h-4 w-4 text-red-600" />}
+                                  <span className={`capitalize font-medium ${
+                                    status === 'running' ? 'text-green-600' : 
+                                    status === 'standby' ? 'text-yellow-600' : 'text-red-600'
+                                  }`}>
+                                    {status}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <Shield className={`h-4 w-4 ${
+                                    failureRisk === 'Low' ? 'text-green-600' : 
+                                    failureRisk === 'Medium' ? 'text-yellow-600' : 'text-red-600'
+                                  }`} />
+                                  <span className={`font-medium ${
+                                    failureRisk === 'Low' ? 'text-green-600' : 
+                                    failureRisk === 'Medium' ? 'text-yellow-600' : 'text-red-600'
+                                  }`}>
+                                    {failureRisk}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-4 w-4 text-blue-600" />
+                                  <span className="text-sm">{depot}</span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-4 w-4 text-purple-600" />
+                                  <span className="font-mono text-sm">Slot-{cleaningSlot}</span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <Train className="h-4 w-4 text-indigo-600" />
+                                  <span className="font-mono text-sm">{stablingPosition}</span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-lg font-bold ${getScoreTextClass(score)}`}>
+                                    {score}
+                                  </span>
+                                  <Progress 
+                                    value={score} 
+                                    className="w-16 h-2" 
+                                    indicatorClassName={getBarClass(score)}
+                                    trackClassName="bg-muted" 
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+                {results.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Train className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No train data available</p>
                   </div>
-                ))}
+                )}
               </CardContent>
             </Card>
             )}

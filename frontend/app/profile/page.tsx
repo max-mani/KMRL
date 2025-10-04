@@ -8,15 +8,73 @@ interface User {
   email: string
   firstName: string
   lastName: string
+  phoneNumber?: string
+  department?: string
+  organization?: string
+  role?: string
+  createdAt?: string
+  lastLogin?: string
 }
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const u = localStorage.getItem("kmrl-user")
-    if (u) setUser(JSON.parse(u))
+    const fetchUserProfile = async () => {
+      try {
+        const token = localStorage.getItem('kmrl-token')
+        if (!token) {
+          setLoading(false)
+          return
+        }
+
+        const response = await fetch('http://localhost:3001/api/user/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.data) {
+            setUser(data.data)
+          } else {
+            // Fallback to localStorage data
+            const u = localStorage.getItem("kmrl-user")
+            if (u) setUser(JSON.parse(u))
+          }
+        } else {
+          // Fallback to localStorage data
+          const u = localStorage.getItem("kmrl-user")
+          if (u) setUser(JSON.parse(u))
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error)
+        // Fallback to localStorage data
+        const u = localStorage.getItem("kmrl-user")
+        if (u) setUser(JSON.parse(u))
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUserProfile()
   }, [])
+
+  if (loading) {
+    return (
+      <section className="container mx-auto px-4 py-12 flex flex-col items-center justify-center min-h-[60vh]">
+        <Card className="w-full max-w-md">
+          <CardContent className="py-8 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--kmrl-teal)] mx-auto mb-4"></div>
+            <p className="text-lg">Loading profile...</p>
+          </CardContent>
+        </Card>
+      </section>
+    )
+  }
 
   if (!user) {
     return (
@@ -61,15 +119,25 @@ export default function ProfilePage() {
             </div>
             <div className="bg-muted/40 rounded-lg p-4 flex flex-col items-center md:col-span-2">
               <span className="text-muted-foreground text-sm">Organisation</span>
-              <span className="font-semibold text-lg">Kochi Metro Rail Limited</span>
+              <span className="font-semibold text-lg">{user.organization || 'Kochi Metro Rail Limited'}</span>
             </div>
             <div className="bg-muted/40 rounded-lg p-4 flex flex-col items-center">
               <span className="text-muted-foreground text-sm">Department</span>
-              <span className="font-semibold text-lg">Admin</span>
+              <span className="font-semibold text-lg">{user.department || 'Operations'}</span>
             </div>
             <div className="bg-muted/40 rounded-lg p-4 flex flex-col items-center">
               <span className="text-muted-foreground text-sm">Contact Number</span>
-              <span className="font-semibold text-lg">9685741230</span>
+              <span className="font-semibold text-lg">{user.phoneNumber || 'Not provided'}</span>
+            </div>
+            <div className="bg-muted/40 rounded-lg p-4 flex flex-col items-center">
+              <span className="text-muted-foreground text-sm">Role</span>
+              <span className="font-semibold text-lg">{user.role || 'User'}</span>
+            </div>
+            <div className="bg-muted/40 rounded-lg p-4 flex flex-col items-center">
+              <span className="text-muted-foreground text-sm">Member Since</span>
+              <span className="font-semibold text-lg">
+                {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
+              </span>
             </div>
           </div>
           <div className="flex justify-center pt-4">

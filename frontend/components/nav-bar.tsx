@@ -5,6 +5,13 @@ import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "./theme-toggle"
 import { useEffect, useState } from "react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ChevronDown } from "lucide-react"
 
 interface User {
   firstName: string
@@ -12,23 +19,30 @@ interface User {
 
 const links = [
   { href: "/dashboard", label: "Fleet Status" },
+  { href: "/upload", label: "Scheduler" },
+  { href: "/manual-override", label: "Manual Override" },
+  { href: "/what-if", label: "What-If" },
+  { href: "/digital-twin", label: "Digital Twin" },
+  { href: "/analytics", label: "Analysis Overview", hasDropdown: true },
+  { href: "/about", label: "About" },
+]
+
+const analysisOverviewItems = [
+  { href: "/analytics", label: "Analysis Overview" },
   { href: "/maintenance", label: "Maintenance" },
   { href: "/performance", label: "System Performance" },
   { href: "/insights", label: "Critical Insights" },
   { href: "/history", label: "Historical Data" },
-  { href: "/digital-twin", label: "What-If" },
-  { href: "/upload", label: "Upload Data" },
-  { href: "/analytics", label: "Overview" },
   { href: "/stations", label: "Stations" },
   { href: "/maps", label: "Route Maps" },
   { href: "/fares", label: "Fares" },
-  { href: "/about", label: "About" },
 ]
 
 export function NavBar() {
   const pathname = usePathname()
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
+  const [selectedDropdownItem, setSelectedDropdownItem] = useState<string>("Analysis Overview")
 
   useEffect(() => {
     const storedUser = localStorage.getItem("kmrl-user")
@@ -37,6 +51,16 @@ export function NavBar() {
     }
   }, [pathname]) // Rerun on route change
 
+  // Update selected dropdown item based on current path
+  useEffect(() => {
+    const currentItem = analysisOverviewItems.find(item => pathname?.startsWith(item.href))
+    if (currentItem) {
+      setSelectedDropdownItem(currentItem.label)
+    } else {
+      setSelectedDropdownItem("Analysis Overview")
+    }
+  }, [pathname])
+
   const handleLogout = () => {
     localStorage.removeItem("kmrl-user")
     localStorage.removeItem("kmrl-token")
@@ -44,7 +68,7 @@ export function NavBar() {
     router.push("/login")
   }
 
-  const protectedRoutes = new Set(["/dashboard", "/maintenance", "/performance", "/analytics", "/insights", "/history", "/digital-twin", "/what-if", "/upload"])
+  const protectedRoutes = new Set(["/dashboard", "/maintenance", "/performance", "/analytics", "/insights", "/history", "/digital-twin", "/what-if", "/upload", "/stations", "/maps", "/fares", "/manual-override"])
   const handleNavClick = (e: React.MouseEvent, href: string) => {
     if (protectedRoutes.has(href) && !user) {
       e.preventDefault()
@@ -67,6 +91,39 @@ export function NavBar() {
         <nav className="hidden lg:flex items-center gap-1">
           {links.map((l) => {
             const active = pathname?.startsWith(l.href)
+            
+            if (l.hasDropdown) {
+              return (
+                <DropdownMenu key={l.href}>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={`px-2 py-1 rounded-md text-sm flex items-center gap-1 ${active ? "bg-muted" : "hover:bg-muted"}`}
+                      onClick={() => console.log('Dropdown trigger clicked')}
+                    >
+                      {selectedDropdownItem}
+                      <ChevronDown className="ml-1 h-3 w-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48 z-50">
+                    {analysisOverviewItems.map((item) => (
+                      <DropdownMenuItem key={item.href} asChild>
+                        <Link
+                          href={item.href}
+                          onClick={(e) => {
+                            handleNavClick(e, item.href)
+                            setSelectedDropdownItem(item.label)
+                          }}
+                          className="w-full cursor-pointer"
+                        >
+                          {item.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )
+            }
+            
             return (
               <Link
                 key={l.href}

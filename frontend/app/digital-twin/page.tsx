@@ -454,10 +454,64 @@ export default function DigitalTwinPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">What-If</h1>
+        <h1 className="text-3xl font-bold mb-2">Digital Twin</h1>
         <p className="text-muted-foreground">
-          Interactive train yard visualization with real-time optimization and animated train movements
+          Interactive train yard simulation and optimization with real-time visualization
         </p>
+      </div>
+
+      {/* AnyLogic Digital Twin Simulation - Shunt Analysis */}
+      <div className="mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Shunt Analysis - Digital Twin
+            </CardTitle>
+            <CardDescription>
+              Advanced railway simulation model powered by AnyLogic showing real-time shunt operations and optimization
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Alert>
+                <Zap className="h-4 w-4" />
+                <AlertDescription>
+                  This AnyLogic simulation shows real-time train movements, shunt operations optimization, track utilization analysis, and conflict resolution visualization.
+                </AlertDescription>
+              </Alert>
+              
+              <div className="rounded-lg border overflow-hidden bg-muted/20">
+                <iframe 
+                  width="100%" 
+                  height="650" 
+                  allow="fullscreen" 
+                  src="https://cloud.anylogic.com/assets/embed?modelId=56da9169-485e-433d-8628-c37fda4590c5"
+                  className="w-full"
+                  title="AnyLogic Digital Twin Simulation - Shunt Analysis"
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div className="text-center p-3 bg-blue-50 rounded-lg">
+                  <Train className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                  <h4 className="font-semibold text-blue-800">Real-time Movements</h4>
+                  <p className="text-sm text-blue-600">Live train positioning and routing</p>
+                </div>
+                <div className="text-center p-3 bg-green-50 rounded-lg">
+                  <Target className="h-6 w-6 mx-auto mb-2 text-green-600" />
+                  <h4 className="font-semibold text-green-800">Shunt Optimization</h4>
+                  <p className="text-sm text-green-600">Automated shunt operation planning</p>
+                </div>
+                <div className="text-center p-3 bg-purple-50 rounded-lg">
+                  <BarChart3 className="h-6 w-6 mx-auto mb-2 text-purple-600" />
+                  <h4 className="font-semibold text-purple-800">Track Analysis</h4>
+                  <p className="text-sm text-purple-600">Utilization and efficiency metrics</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
@@ -609,7 +663,7 @@ export default function DigitalTwinPage() {
             <CardHeader>
               <CardTitle>Train Yard Visualization</CardTitle>
               <CardDescription>
-                Real-time 2D visualization of train positions and movements
+                Interactive 2D visualization of train positions and movements with optimization controls
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -618,7 +672,7 @@ export default function DigitalTwinPage() {
                   ref={canvasRef}
                   width={1000}
                   height={500}
-                  className="border rounded-lg bg-gray-50"
+                  className="border rounded-lg bg-gray-50 w-full max-w-[1000px]"
                 />
                 
                 {/* Legend */}

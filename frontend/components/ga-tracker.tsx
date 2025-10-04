@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { safeLogAnalyticsEvent } from '@/lib/firebase-client';
 
 type Props = {
-	page: 'fleet_status' | 'maintenance' | 'performance' | 'insights' | 'history' | 'what_if';
+	page: 'fleet_status' | 'maintenance' | 'performance' | 'insights' | 'history' | 'what_if' | 'manual_override';
 	attributes?: Record<string, any>;
 };
 
