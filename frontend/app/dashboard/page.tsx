@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { DashboardSkeleton } from "@/components/ui/skeleton"
+import { ErrorDisplay, Breadcrumb, Loading, useRetry } from "@/components/ui/error-handling"
 import { 
   Train, 
   AlertTriangle, 
@@ -107,8 +109,10 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [results, setResults] = useState<Result[]>([])
   const [narratives, setNarratives] = useState<Record<string, string>>({})
+  const [error, setError] = useState<string | null>(null)
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
   const { overrides } = useManualOverride()
+  const { retry, retryCount, isRetrying } = useRetry()
 
   useEffect(() => {
     try {
@@ -171,13 +175,37 @@ export default function DashboardPage() {
 
   const handleRefresh = () => {
     setIsLoading(true)
+    setError(null)
     setTimeout(() => setIsLoading(false), 2000)
+  }
+
+  const handleRetry = () => {
+    retry(async () => {
+      setIsLoading(true)
+      setError(null)
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      setIsLoading(false)
+    }).catch(err => {
+      setError(err.message)
+      setIsLoading(false)
+    })
   }
 
   return (
     <Protected>
       <section className="container mx-auto px-4 py-8">
         <GATracker page="fleet_status" />
+        
+        {/* Breadcrumb Navigation */}
+        <Breadcrumb 
+          items={[
+            { label: 'Dashboard', href: '/' },
+            { label: 'Fleet Status' }
+          ]}
+          className="mb-6"
+        />
+        
         <div className="mb-6 flex items-center justify-between">
           <div>
           <h1 className="text-2xl md:text-3xl font-semibold text-balance" style={{ color: "var(--kmrl-teal)" }}>
@@ -199,17 +227,33 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="space-y-6">
-          {!results.length && (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <AlertTriangle className="h-8 w-8 mx-auto mb-3 text-yellow-600" />
-                <p className="mb-2">No data found. Please upload data to view Fleet Status.</p>
-                <a href="/upload" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Upload</a>
-              </CardContent>
-            </Card>
-          )}
+        {/* Error Display */}
+        {error && (
+          <ErrorDisplay 
+            error={error}
+            retry={handleRetry}
+            className="mb-6"
+          />
+        )}
+
+        {/* Loading State */}
+        {isLoading && !results.length && (
+          <DashboardSkeleton />
+        )}
+
+        {/* Main Content */}
+        {!isLoading && (
           <div className="space-y-6">
+            {!results.length && (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <AlertTriangle className="h-8 w-8 mx-auto mb-3 text-yellow-600" />
+                  <p className="mb-2">No data found. Please upload data to view Fleet Status.</p>
+                  <a href="/upload" className="underline" style={{ color: "var(--kmrl-teal)" }}>Go to Upload</a>
+                </CardContent>
+              </Card>
+            )}
+            <div className="space-y-6">
             {/* Fleet Status Overview */}
             {results.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -349,8 +393,9 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
             )}
+            </div>
           </div>
-        </div>
+        )}
       </section>
     </Protected>
   )

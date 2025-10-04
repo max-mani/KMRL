@@ -9,6 +9,7 @@ import { Footer } from "@/components/footer"
 import ChatBot from "@/components/chatbot"
 import { Suspense } from "react"
 import { ManualOverrideProvider } from "@/components/manual-override"
+import { ToastProvider } from "@/components/ui/toast"
 
 export const metadata: Metadata = {
   title: "KMRL Fleet Optimization",
@@ -21,6 +22,18 @@ export const metadata: Metadata = {
   },
 }
 
+function LayoutContent({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-dvh flex flex-col bg-background text-foreground">
+      <Suspense fallback={<div>Loading...</div>}>
+        <NavBar />
+        <main className="flex-1">{children}</main>
+        <Footer />
+      </Suspense>
+    </div>
+  )
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,13 +43,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <ManualOverrideProvider>
-          <div className="min-h-dvh flex flex-col bg-background text-foreground">
-            <Suspense fallback={<div>Loading...</div>}>
-              <NavBar />
-              <main className="flex-1">{children}</main>
-              <Footer />
-            </Suspense>
-          </div>
+          <ToastProvider>
+            <LayoutContent>{children}</LayoutContent>
+          </ToastProvider>
         </ManualOverrideProvider>
         <ChatBot />
         <div suppressHydrationWarning>
