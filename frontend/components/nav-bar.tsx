@@ -19,6 +19,10 @@ const links = [
   { href: "/digital-twin", label: "What-If" },
   { href: "/upload", label: "Upload Data" },
   { href: "/analytics", label: "Overview" },
+  { href: "/stations", label: "Stations" },
+  { href: "/maps", label: "Route Maps" },
+  { href: "/fares", label: "Fares" },
+  { href: "/about", label: "About" },
 ]
 
 export function NavBar() {

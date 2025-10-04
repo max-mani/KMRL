@@ -131,9 +131,11 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Subtle diagonal gradient background for visual depth */
-    background-image: radial-gradient(1200px 600px at 10% -10%, color-mix(in oklch, var(--kmrl-teal) 10%, white) 0%, transparent 60%),
-      radial-gradient(1200px 600px at 110% 10%, color-mix(in oklch, var(--kmrl-accent) 12%, white) 0%, transparent 60%);
+    /* Enhanced gradient background for visual depth */
+    background-image: 
+      radial-gradient(1200px 600px at 10% -10%, color-mix(in oklch, var(--kmrl-teal) 8%, white) 0%, transparent 60%),
+      radial-gradient(1200px 600px at 110% 10%, color-mix(in oklch, var(--kmrl-accent) 10%, white) 0%, transparent 60%),
+      radial-gradient(800px 400px at 50% 50%, color-mix(in oklch, var(--kmrl-teal) 3%, white) 0%, transparent 70%);
   }
 }
 
@@ -143,19 +145,104 @@
   background: linear-gradient(90deg, var(--kmrl-teal), var(--kmrl-accent));
 }
 
-/* Card visual polish */
+/* Enhanced card visual polish */
 .card {
   transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+  position: relative;
+  overflow: hidden;
 }
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--kmrl-teal), var(--kmrl-accent));
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
 .card:hover {
   box-shadow: 0 10px 24px -12px color-mix(in oklch, var(--kmrl-teal) 30%, black);
   border-color: color-mix(in oklch, var(--kmrl-teal) 40%, var(--border));
+  transform: translateY(-2px);
 }
 
-/* Tabs active styles */
+/* Enhanced tabs active styles */
 .tabs-trigger[data-state="active"] {
   border-bottom: 2px solid var(--kmrl-teal);
   color: var(--kmrl-teal);
+  background: color-mix(in oklch, var(--kmrl-teal) 5%, var(--background));
+}
+
+/* Enhanced button styles */
+.btn-primary {
+  background: linear-gradient(135deg, var(--kmrl-teal), color-mix(in oklch, var(--kmrl-teal) 80%, black));
+  box-shadow: 0 4px 12px color-mix(in oklch, var(--kmrl-teal) 30%, transparent);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px color-mix(in oklch, var(--kmrl-teal) 40%, transparent);
+}
+
+/* Enhanced badge styles */
+.badge {
+  position: relative;
+  overflow: hidden;
+}
+
+.badge::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.badge:hover::before {
+  left: 100%;
+}
+
+/* Enhanced table styles */
+.table-row:hover {
+  background: color-mix(in oklch, var(--kmrl-teal) 3%, var(--background));
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Enhanced focus styles */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--kmrl-teal);
+  outline-offset: 2px;
+}
+
+/* Loading animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--kmrl-teal) 50%, transparent);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 0 8px color-mix(in oklch, var(--kmrl-teal) 0%, transparent);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s infinite;
 }
 
 /* Recharts theming */
@@ -164,7 +251,52 @@
   color: var(--foreground) !important;
   border: 1px solid var(--border) !important;
   border-radius: var(--radius) !important;
+  box-shadow: 0 4px 12px color-mix(in oklch, var(--kmrl-teal) 20%, transparent) !important;
 }
 .recharts-legend-item-text {
   fill: var(--foreground) !important;
+}
+
+/* Enhanced iframe styles for maps */
+iframe {
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px color-mix(in oklch, var(--kmrl-teal) 15%, transparent);
+}
+
+/* Station number styling */
+.station-number {
+  background: linear-gradient(135deg, var(--kmrl-teal), color-mix(in oklch, var(--kmrl-teal) 80%, black));
+  box-shadow: 0 2px 8px color-mix(in oklch, var(--kmrl-teal) 30%, transparent);
+}
+
+/* Enhanced navigation hover effects */
+.nav-link {
+  position: relative;
+  transition: all 200ms ease;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--kmrl-teal);
+  transition: width 200ms ease;
+}
+
+.nav-link:hover::after {
+  width: 100%;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .card:hover {
+    transform: none;
+  }
+  
+  .card:hover::before {
+    opacity: 0;
+  }
 }
