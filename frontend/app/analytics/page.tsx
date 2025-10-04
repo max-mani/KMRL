@@ -6,8 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AnalyticsSkeleton } from "@/components/ui/skeleton"
-import { ErrorDisplay, Breadcrumb, Loading, useRetry } from "@/components/ui/error-handling"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area } from "recharts"
 import { TrendingUp, TrendingDown, Clock, Zap, Target, AlertCircle, Brain, Lightbulb, DollarSign, Activity, BarChart3, PieChart as PieChartIcon } from "lucide-react"
 import { EditableValue } from "@/components/manual-override"
@@ -68,7 +66,6 @@ interface AnalyticsData {
 
 export default function AnalyticsPage() {
   const [hasUser, setHasUser] = useState<boolean>(false)
-  const [error, setError] = useState<string | null>(null)
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
     historicalData: {
       averageScore: 0,
@@ -111,7 +108,6 @@ export default function AnalyticsPage() {
   })
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('all')
-  const { retry, retryCount, isRetrying } = useRetry()
 
   useEffect(() => {
     try {
@@ -177,7 +173,6 @@ export default function AnalyticsPage() {
         }
       } catch (error) {
         console.error('Error fetching analytics data:', error)
-        setError('Failed to load analytics data. Please try again.')
       } finally {
         setLoading(false)
       }
@@ -185,19 +180,6 @@ export default function AnalyticsPage() {
 
     fetchAnalyticsData()
   }, [])
-
-  const handleRetry = () => {
-    retry(async () => {
-      setLoading(true)
-      setError(null)
-      // Retry the data fetch
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      setLoading(false)
-    }).catch(err => {
-      setError(err.message)
-      setLoading(false)
-    })
-  }
 
   const getKpiColor = (value: number, threshold: number = 90) => {
     if (value >= threshold) return 'text-green-600'
@@ -263,14 +245,9 @@ export default function AnalyticsPage() {
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <Breadcrumb 
-          items={[
-            { label: 'Dashboard', href: '/' },
-            { label: 'Analytics' }
-          ]}
-          className="mb-6"
-        />
-        <AnalyticsSkeleton />
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[var(--kmrl-teal)]"></div>
+        </div>
       </div>
     )
   }
@@ -279,15 +256,6 @@ export default function AnalyticsPage() {
     <div className="container mx-auto px-4 py-8">
       <GATracker page="analytics" />
       
-      {/* Breadcrumb Navigation */}
-      <Breadcrumb 
-        items={[
-          { label: 'Dashboard', href: '/' },
-          { label: 'Analytics' }
-        ]}
-        className="mb-6"
-      />
-      
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Overview Dashboard</h1>
@@ -295,15 +263,6 @@ export default function AnalyticsPage() {
           Comprehensive analysis of fleet performance, historical trends, and AI-powered insights
         </p>
       </div>
-
-      {/* Error Display */}
-      {error && (
-        <ErrorDisplay 
-          error={error}
-          retry={handleRetry}
-          className="mb-8"
-        />
-      )}
 
       {/* Historical Data Section */}
       <div className="mb-8">

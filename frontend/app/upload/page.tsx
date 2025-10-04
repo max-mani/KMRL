@@ -8,9 +8,6 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { TableSkeleton, CardSkeleton } from "@/components/ui/skeleton"
-import { ErrorDisplay, Breadcrumb, Loading, useRetry } from "@/components/ui/error-handling"
-import { DataTable } from "@/components/ui/advanced-table"
 import { 
   Upload, 
   FileText, 
