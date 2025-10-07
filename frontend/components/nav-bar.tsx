@@ -21,9 +21,8 @@ const links = [
   { href: "/dashboard", label: "Fleet Status" },
   { href: "/upload", label: "Scheduler" },
   { href: "/manual-override", label: "Manual Override" },
-  { href: "/what-if", label: "What-If" },
-  { href: "/digital-twin", label: "Digital Twin" },
   { href: "/analytics", label: "Analysis Overview", hasDropdown: true },
+  { href: "/analytics/operations", label: "Operations" },
   { href: "/about", label: "About" },
 ]
 
@@ -69,6 +68,8 @@ export function NavBar() {
   }
 
   const protectedRoutes = new Set(["/dashboard", "/maintenance", "/performance", "/analytics", "/insights", "/history", "/digital-twin", "/what-if", "/upload", "/stations", "/maps", "/fares", "/manual-override"])
+  // include operations under analytics
+  protectedRoutes.add('/analytics/operations')
   const handleNavClick = (e: React.MouseEvent, href: string) => {
     if (protectedRoutes.has(href) && !user) {
       e.preventDefault()

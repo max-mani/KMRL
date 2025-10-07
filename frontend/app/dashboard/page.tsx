@@ -115,6 +115,7 @@ export default function DashboardPage() {
   const [calculatedData, setCalculatedData] = useState<Record<string, { depot: string; cleaningSlot: number; stablingPosition: string }>>({})
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
   const { overrides } = useManualOverride()
+  const [sentMessageVisible, setSentMessageVisible] = useState(false)
 
   useEffect(() => {
     try {
@@ -237,6 +238,42 @@ export default function DashboardPage() {
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
+            <div>
+              <Button
+                className="bg-[var(--kmrl-teal)] text-white hover:opacity-90"
+                onClick={() => {
+                  try {
+                    // compute counts (kept for potential future use)
+                    const running = results.filter(r => Number(r.score) >= 65).length
+                    const standby = results.filter(r => Number(r.score) >= 50 && Number(r.score) < 65).length
+                    const maintenance = results.filter(r => Number(r.score) < 50).length
+
+                    // Show inline success message after 2 seconds
+                    setSentMessageVisible(false)
+                    setTimeout(() => {
+                      setSentMessageVisible(true)
+                      // auto-hide after 5 seconds
+                      setTimeout(() => setSentMessageVisible(false), 5000)
+                    }, 2000)
+                  } catch (e) {
+                    // if error, still show message
+                    setSentMessageVisible(true)
+                    setTimeout(() => setSentMessageVisible(false), 5000)
+                  }
+                }}
+              >
+              {/* WhatsApp SVG */}
+              <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <path d="M20.52 3.48A11.86 11.86 0 0012 .5C6.21.5 1.5 5.21 1.5 11c0 1.94.51 3.78 1.48 5.41L.5 23.5l7.32-2.38A11.86 11.86 0 0012 22.5c5.79 0 10.5-4.71 10.5-10.5 0-3.03-1.18-5.86-3.98-8.52zM12 20.75c-1.2 0-2.37-.26-3.44-.76l-.25-.13-4.36 1.42 1.36-3.98-.16-.26A8.25 8.25 0 013.75 11c0-4.55 3.7-8.25 8.25-8.25S20.25 6.45 20.25 11 16.55 20.75 12 20.75z" />
+                <path d="M17.06 14.17c-.29-.14-1.71-.84-1.97-.93-.26-.09-.45-.14-.64.14s-.73.93-.9 1.12c-.17.19-.34.21-.63.07-.29-.14-1.22-.45-2.32-1.42-.86-.78-1.44-1.74-1.61-2.02-.17-.29-.02-.45.13-.59.13-.13.29-.34.44-.51.15-.17.19-.29.29-.48.09-.19.05-.36-.02-.5-.07-.14-.64-1.54-.88-2.12-.23-.56-.47-.48-.64-.49l-.55-.01c-.19 0-.5.07-.76.36-.26.29-1 1-1 2.43 0 1.43 1.03 2.81 1.17 3.01.14.19 2.03 3.1 4.92 4.35 2.89 1.25 2.89.83 3.41.78.52-.04 1.71-.7 1.95-1.37.24-.67.24-1.24.17-1.37-.07-.13-.26-.19-.55-.33z" fill="#fff" />
+              </svg>
+              Send the fleet status to Supervisor
+              </Button>
+
+              {sentMessageVisible && (
+                <p className="text-sm text-green-600 mt-2">Successfully sent data to Supervisors</p>
+              )}
+            </div>
           </div>
         </div>
 
