@@ -84,6 +84,7 @@ interface ComparisonData {
 }
 
 export default function HistoryPage() {
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
   const [hasUser, setHasUser] = useState<boolean>(false)
   const [hasResults, setHasResults] = useState<boolean>(true)
   const [historicalData, setHistoricalData] = useState<HistoricalData>({
@@ -113,7 +114,7 @@ export default function HistoryPage() {
           return
         }
 
-        const apiUrl = `http://localhost:3001/api/performance/history?period=${selectedPeriod}`
+  const apiUrl = `${apiBase}/api/performance/history?period=${selectedPeriod}`
         console.log('History API URL:', apiUrl)
         const response = await fetch(apiUrl, {
           headers: {

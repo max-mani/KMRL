@@ -17,6 +17,7 @@ interface User {
 }
 
 export default function ProfilePage() {
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -29,7 +30,7 @@ export default function ProfilePage() {
           return
         }
 
-        const response = await fetch('http://localhost:3001/api/user/profile', {
+        const response = await fetch(`${apiBase}/api/user/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

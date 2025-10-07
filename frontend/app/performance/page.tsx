@@ -37,6 +37,7 @@ interface PerformanceMetrics {
 }
 
 export default function PerformancePage() {
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
   const [hasUser, setHasUser] = useState<boolean>(false)
   const [hasResults, setHasResults] = useState<boolean>(true)
   const [performanceData, setPerformanceData] = useState<PerformanceMetrics>({
@@ -76,7 +77,7 @@ export default function PerformancePage() {
           return
         }
 
-        const response = await fetch('http://localhost:3001/api/performance/metrics', {
+        const response = await fetch(`${apiBase}/api/performance/metrics`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

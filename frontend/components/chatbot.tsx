@@ -55,8 +55,9 @@ export default function ChatBot() {
     setIsLoading(true)
 
     try {
-      console.log('Sending request to backend chat API...')
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/chat/message`, {
+      const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
+      console.log('Sending request to backend chat API...', apiBase)
+      const response = await fetch(`${apiBase}/api/chat/message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

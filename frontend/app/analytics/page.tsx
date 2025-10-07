@@ -133,21 +133,22 @@ export default function AnalyticsPage() {
           return
         }
 
-        // Fetch all analytics data in parallel
+        // Fetch all analytics data in parallel using configured API base
+        const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001')
         const [historicalResponse, insightsResponse, performanceResponse] = await Promise.all([
-          fetch('http://localhost:3001/api/performance/history', {
+          fetch(`${apiBase}/api/performance/history`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
           }),
-          fetch('http://localhost:3001/api/performance/insights', {
+          fetch(`${apiBase}/api/performance/insights`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
           }),
-          fetch('http://localhost:3001/api/performance/metrics', {
+          fetch(`${apiBase}/api/performance/metrics`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
